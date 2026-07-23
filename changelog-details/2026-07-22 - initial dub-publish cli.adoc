@@ -1,0 +1,6 @@
+= Initial dub-publish CLI
+:date: 2026-07-22
+
+Official `dub` does not ship a registry submit command. Package registration is a browser form (`POST /register_package`) after userman session login.
+
+`dub-publish` wraps that flow so packages in this organization (and elsewhere) can be registered from a shell or CI without using the website.

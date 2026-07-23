@@ -1,0 +1,72 @@
+= dub-publish
+
+CLI to register a Git repository with the https://code.dlang.org[DUB package registry].
+
+Official `dub` has no `publish` / `submit` command. Publishing is done by logging into the registry website and submitting a repository URL; this tool automates that flow.
+
+== Install
+
+[source,console]
+----
+git clone https://github.com/dlang-supplemental/dub-publish.git
+cd dub-publish
+dub build
+----
+
+Put the resulting `dub-publish` binary on your `PATH`.
+
+== Quick start
+
+[source,console]
+----
+# credentials via env (preferred in CI)
+set DUB_REGISTRY_USER=yourname
+set DUB_REGISTRY_PASSWORD=secret
+
+# from a package repo (uses git remote origin + dub recipe name)
+dub-publish
+
+# or explicitly
+dub-publish register --url https://github.com/org/repo --ignore-fork
+----
+
+== Commands
+
+`register` / `publish`:: Log in and `POST /register_package` with the repository URL.
+`status`:: Check whether a package exists (`GET /api/packages/:name/latest`).
+`update`:: Queue a metadata refresh (login, or `--secret` webhook).
+`login`:: Verify credentials and refresh the cookie jar.
+
+== Options
+
+* `--registry` — default `https://code.dlang.org`
+* `--user` / `--password` — or `DUB_REGISTRY_USER` / `DUB_REGISTRY_PASSWORD`
+* `--url` — repository URL (default: `git remote get-url origin`)
+* `--package` / `-n` — package name (default: from `dub.json` / `dub.sdl`)
+* `--ignore-fork` — register even when the repo is a fork
+* `--dry-run` — print what would happen
+* `--save-credentials` — store user/password under the local config dir
+
+Credentials file (created by `--save-credentials`):
+
+* Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials`
+* Unix: `~/.dlang-supplemental/dub-publish/credentials`
+
+== How versions get published
+
+Registration only links the repository. New versions appear when you push SemVer tags (`v1.2.3`); the registry polls about twice an hour. You can also trigger an immediate refresh:
+
+[source,console]
+----
+dub-publish update -n mypkg --secret YOUR_PACKAGE_SECRET
+----
+
+The secret is shown on the package settings page under _My packages_.
+
+== Changelog
+
+See link:CHANGELOG.adoc[CHANGELOG].
+
+== License
+
+Boost Software License 1.0.

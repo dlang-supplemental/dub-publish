@@ -1,0 +1,13 @@
+name "dub-publish"
+description "CLI to register Git repositories with the DUB package registry (code.dlang.org)"
+authors "amdphreak"
+copyright "Copyright © 2026, amdphreak"
+license "BSL-1.0"
+
+targetType "executable"
+targetName "dub-publish"
+
+versions "DubPublishCli"
+
+importPaths "source"
+sourcePaths "source"

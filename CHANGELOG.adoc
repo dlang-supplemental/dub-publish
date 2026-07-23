@@ -1,0 +1,10 @@
+= Changelog
+
+== 0.1.0 (2026-07-22)
+
+* Initial CLI: `register`/`publish`, `status`, `update`, `login`
+* Session login against code.dlang.org (userman form) and package registration
+* Detect repository URL from `git remote origin` and package name from `dub.json`/`dub.sdl`
+* Credentials via flags, environment, or local config file
+
+link:changelog-details/2026-07-22 - initial dub-publish cli.adoc[Details]
