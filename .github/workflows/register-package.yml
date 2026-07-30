@@ -1,0 +1,81 @@
+name: Reusable — register package on DUB
+
+# Org-wide helper for agentic / CI publishing.
+# Consumers:
+#   jobs:
+#     publish:
+#       uses: dlang-supplemental/dub-publish/.github/workflows/register-package.yml@main
+#       with:
+#         package: project-map
+#         url: https://github.com/openshellorg/project-map
+#         root: lib
+#       secrets:
+#         DUB_REGISTRY_USER: ${{ secrets.DUB_REGISTRY_USER }}
+#         DUB_REGISTRY_PASSWORD: ${{ secrets.DUB_REGISTRY_PASSWORD }}
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: DUB package name
+        required: true
+        type: string
+      url:
+        description: Public git repository URL
+        required: true
+        type: string
+      root:
+        description: Package directory relative to the calling repo root
+        required: false
+        type: string
+        default: "."
+      ignore_fork:
+        description: Pass --ignore-fork
+        required: false
+        type: boolean
+        default: true
+      dry_run:
+        description: Print actions without contacting the registry
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      DUB_REGISTRY_USER:
+        required: true
+      DUB_REGISTRY_PASSWORD:
+        required: true
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout consumer package
+        uses: actions/checkout@v4
+        with:
+          path: package
+
+      - name: Checkout dub-publish
+        uses: actions/checkout@v4
+        with:
+          repository: dlang-supplemental/dub-publish
+          path: dub-publish
+
+      - uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ldc-latest
+
+      - name: Register with code.dlang.org
+        env:
+          DUB_REGISTRY_USER: ${{ secrets.DUB_REGISTRY_USER }}
+          DUB_REGISTRY_PASSWORD: ${{ secrets.DUB_REGISTRY_PASSWORD }}
+        working-directory: dub-publish
+        run: |
+          set -euo pipefail
+          ARGS=(register --root "../package/${{ inputs.root }}" --url "${{ inputs.url }}" --package "${{ inputs.package }}")
+          if [ "${{ inputs.ignore_fork }}" = "true" ]; then
+            ARGS+=(--ignore-fork)
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          dub run -- "${ARGS[@]}"

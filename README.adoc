@@ -13,7 +13,23 @@ cd dub-publish
 dub build
 ----
 
-Put the resulting `dub-publish` binary on your `PATH`.
+Put the resulting `dub-publish` binary on your `PATH`, or run via `dub run` from a clone.
+
+=== From CI (reusable workflow)
+
+[source,yaml]
+----
+jobs:
+  publish:
+    uses: dlang-supplemental/dub-publish/.github/workflows/register-package.yml@main
+    with:
+      package: mypkg
+      url: https://github.com/org/repo
+      root: .
+    secrets:
+      DUB_REGISTRY_USER: ${{ secrets.DUB_REGISTRY_USER }}
+      DUB_REGISTRY_PASSWORD: ${{ secrets.DUB_REGISTRY_PASSWORD }}
+----
 
 == Quick start
 

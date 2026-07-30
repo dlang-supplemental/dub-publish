@@ -1,9 +1,8 @@
 module app;
 
-import std.algorithm : among, canFind, startsWith;
+import std.algorithm : among, startsWith;
 import std.getopt;
 import std.stdio;
-import std.string : strip;
 
 import dub_publish;
 

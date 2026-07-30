@@ -1,7 +1,7 @@
 module dub_publish.registry;
 
-import std.algorithm : canFind, startsWith;
-import std.array : appender, join;
+import std.algorithm : canFind;
+import std.array : appender;
 import std.conv : to;
 import std.exception : enforce;
 import std.file : exists, mkdirRecurse;
@@ -125,7 +125,7 @@ final class DubRegistryClient
 		if (res.status == 404)
 			return null;
 		enforce(res.ok, "Lookup failed HTTP " ~ res.status.to!string);
-		return res.body_.strip;
+		return unwrapJsonString(res.body_.strip);
 	}
 
 private:
@@ -169,6 +169,13 @@ private:
 		res.finalUrl = url;
 		return res;
 	}
+}
+
+private string unwrapJsonString(string s)
+{
+	if (s.length >= 2 && s[0] == '"' && s[$ - 1] == '"')
+		return s[1 .. $ - 1];
+	return s;
 }
 
 private string extractAlert(string html)

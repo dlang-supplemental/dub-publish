@@ -1,5 +1,10 @@
 = Changelog
 
+== 0.1.1 (2026-07-30)
+
+* Unwrap JSON string quotes from `/api/packages/:name/latest` responses.
+* Drop unused imports in `app.d` / `registry.d`.
+
 == 0.1.0 (2026-07-22)
 
 * Initial CLI: `register`/`publish`, `status`, `update`, `login`
