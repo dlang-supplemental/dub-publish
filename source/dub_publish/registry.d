@@ -92,12 +92,20 @@ final class DubRegistryClient
 				"Repository looks like a fork. Re-run with --ignore-fork if that is intentional.");
 		}
 		if (lower.canFind("redalert") || (res.status == 200 && lower.canFind("add new package")
-			&& lower.canFind("error")))
+			&& (lower.canFind("error") || lower.canFind("failed"))))
 		{
 			auto alert = extractAlert(res.body_);
 			if (isAlreadyRegisteredMessage(alert))
 				throw new AlreadyRegisteredException(alert);
 			throw new Exception("Registration failed:\n" ~ alert);
+		}
+		// Successful registration usually redirects away from the add form.
+		if (res.status == 200 && lower.canFind("add new package")
+			&& lower.canFind("register package"))
+		{
+			throw new Exception(
+				"Registration did not complete (still on add-package form). "
+				~ "Check credentials and repository URL.\n" ~ extractAlert(res.body_));
 		}
 		enforceAuth(res, lower);
 		return res;

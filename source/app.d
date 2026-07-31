@@ -216,22 +216,31 @@ int cmdRegister(PublishConfig cfg, string root, string url, string packageName,
 		import core.thread : Thread;
 		import core.time : seconds;
 		if (!already)
-			Thread.sleep(2.seconds);
-		if (client.packageExists(name))
+			Thread.sleep(5.seconds);
+		foreach (attempt; 0 .. 12)
 		{
-			auto upd = client.triggerUpdate(name);
-			writeln(already ? "Refreshing existing package." : "Registered.");
-			writeln("Update queued (HTTP ", upd.status, ")");
-			auto ver = client.latestVersion(name);
-			writeln("Latest: ", ver.length ? ver : "(pending)");
-			writeln(cfg.registryUrl, "/packages/", name);
-			return upd.ok ? 0 : 1;
+			if (client.packageExists(name))
+			{
+				auto upd = client.triggerUpdate(name);
+				writeln(already ? "Refreshing existing package." : "Registered.");
+				writeln("Update queued (HTTP ", upd.status, ")");
+				auto ver = client.latestVersion(name);
+				writeln("Latest: ", ver.length ? ver : "(pending)");
+				writeln(cfg.registryUrl, "/packages/", name);
+				return upd.ok ? 0 : 1;
+			}
+			if (attempt < 11)
+			{
+				writeln("Waiting for registry to ingest package… (", attempt + 1, "/12)");
+				Thread.sleep(10.seconds);
+			}
 		}
 		writeln(already
-			? "Already registered, but package name was not found yet — check the root recipe name."
-			: "Submitted. Package may take a minute to appear at ");
+			? "Already registered, but package name was not found — check the root recipe name."
+			: "Submitted, but package never appeared. Check My packages and recipe name at repo root.");
 		writeln(cfg.registryUrl, "/packages/", name);
-		return already ? 1 : 0;
+		writeln(cfg.registryUrl, "/my_packages");
+		return 1;
 	}
 
 	writeln(already
