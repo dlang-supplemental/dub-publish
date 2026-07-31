@@ -4,10 +4,10 @@ import std.algorithm : canFind;
 import std.array : appender;
 import std.conv : to;
 import std.exception : enforce;
-import std.file : exists, mkdirRecurse;
+import std.file : exists, mkdirRecurse, read;
 import std.net.curl : CurlException, HTTP;
-import std.path : dirName;
-import std.string : toLower, strip;
+import std.path : baseName, dirName;
+import std.string : representation, toLower, strip;
 import std.uri : encodeComponent;
 
 import dub_publish.config : PublishConfig;
@@ -19,6 +19,27 @@ struct RegistryResult
 	string body_;
 	string finalUrl;
 	bool ok() const @safe pure nothrow { return status >= 200 && status < 400; }
+}
+
+/// Webhook endpoint URLs (always built clean — avoids dub-registry #614 malformation).
+struct WebhookUrls
+{
+	string generic;
+	string github;
+	string gitlab;
+	string secret;
+}
+
+WebhookUrls buildWebhookUrls(string registryUrl, string packageName, string secret)
+{
+	normalizeRegistryUrl(registryUrl);
+	auto base = registryUrl ~ "/api/packages/" ~ encodeComponent(packageName);
+	WebhookUrls u;
+	u.secret = secret;
+	u.generic = base ~ "/update";
+	u.github = base ~ "/update/github?secret=" ~ encodeComponent(secret);
+	u.gitlab = base ~ "/update/gitlab";
+	return u;
 }
 
 final class DubRegistryClient
@@ -45,7 +66,6 @@ final class DubRegistryClient
 		auto res = request(HTTP.Method.post, cfg.registryUrl ~ "/login", form,
 			"application/x-www-form-urlencoded");
 
-		// Success redirects to home; failure re-renders login with an error.
 		auto lower = res.body_.toLower;
 		enforce(!lower.canFind("invalid user name or password")
 			&& !lower.canFind("invalid username or password")
@@ -53,8 +73,7 @@ final class DubRegistryClient
 			"Login failed — check username/password (account must be activated)");
 	}
 
-	/// Register a repository URL. Set ignoreFork to skip the fork warning page.
-	/// Throws AlreadyRegisteredException when the package/URL is already on the registry.
+	/// Register a repository URL. Throws AlreadyRegisteredException when already present.
 	RegistryResult registerPackage(string repoUrl, bool ignoreFork = false)
 	{
 		enforce(repoUrl.length, "Repository URL is required");
@@ -80,24 +99,17 @@ final class DubRegistryClient
 				throw new AlreadyRegisteredException(alert);
 			throw new Exception("Registration failed:\n" ~ alert);
 		}
-		if (res.status == 401 || res.status == 403
-			|| (res.status == 200 && lower.canFind("please enter your user name and password")))
-		{
-			throw new Exception("Not authenticated — login first");
-		}
+		enforceAuth(res, lower);
 		return res;
 	}
 
-	/// Trigger a package metadata refresh (authenticated owner action).
 	RegistryResult triggerUpdate(string packageName)
 	{
 		enforce(packageName.length, "Package name required");
 		return request(HTTP.Method.post,
-			cfg.registryUrl ~ "/my_packages/" ~ encodeComponent(packageName) ~ "/update",
-			null, null);
+			pkgPath(packageName) ~ "/update", null, null);
 	}
 
-	/// Trigger update via package webhook secret (no login).
 	RegistryResult triggerUpdateWithSecret(string packageName, string secret)
 	{
 		enforce(packageName.length, "Package name required");
@@ -107,7 +119,123 @@ final class DubRegistryClient
 		return request(HTTP.Method.post, url, null, null);
 	}
 
-	/// Look up whether a package exists.
+	/// Enable or regenerate webhook secret. Returns plaintext secret (Accept: text/plain).
+	string regenSecret(string packageName)
+	{
+		enforce(packageName.length, "Package name required");
+		auto res = request(HTTP.Method.post, pkgPath(packageName) ~ "/regen_secret",
+			null, null, "text/plain");
+		enforce(res.ok, "regen_secret failed HTTP " ~ res.status.to!string ~ ": " ~ res.body_);
+		auto secret = res.body_.strip;
+		enforce(secret.length > 0, "Registry returned an empty webhook secret");
+		return secret;
+	}
+
+	RegistryResult unsetSecret(string packageName)
+	{
+		enforce(packageName.length, "Package name required");
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/unset_secret", null, null);
+	}
+
+	RegistryResult setDocumentationUrl(string packageName, string documentationUrl)
+	{
+		enforce(packageName.length, "Package name required");
+		auto form = "documentation_url=" ~ encodeComponent(documentationUrl);
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/set_documentation_url",
+			form, "application/x-www-form-urlencoded");
+	}
+
+	RegistryResult setCategories(string packageName, string[] categories)
+	{
+		enforce(packageName.length, "Package name required");
+		enforce(categories.length <= 4, "At most 4 categories allowed");
+		string form;
+		foreach (i, cat; categories)
+		{
+			if (form.length)
+				form ~= "&";
+			form ~= "categories_" ~ i.to!string ~ "=" ~ encodeComponent(cat);
+		}
+		// Pad to 4 slots like the web UI (empty clears unused).
+		foreach (i; categories.length .. 4)
+		{
+			if (form.length)
+				form ~= "&";
+			form ~= "categories_" ~ i.to!string ~ "=";
+		}
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/set_categories",
+			form, "application/x-www-form-urlencoded");
+	}
+
+	RegistryResult setLogo(string packageName, string logoPath)
+	{
+		enforce(packageName.length, "Package name required");
+		enforce(exists(logoPath), "Logo file not found: " ~ logoPath);
+		auto bytes = cast(const(ubyte)[]) read(logoPath);
+		enforce(bytes.length < 1024 * 1024, "Logo too big (max 1 MiB)");
+		enforce(bytes.length > 0, "Logo file is empty");
+
+		auto boundary = "----dubpublishBoundary7d4a6e";
+		auto filename = baseName(logoPath);
+		auto preamble = "--" ~ boundary ~ "\r\n"
+			~ "Content-Disposition: form-data; name=\"logo\"; filename=\"" ~ filename ~ "\"\r\n"
+			~ "Content-Type: application/octet-stream\r\n\r\n";
+		auto epilogue = "\r\n--" ~ boundary ~ "--\r\n";
+		auto bodyBytes = cast(ubyte[])(preamble.representation.dup)
+			~ bytes
+			~ cast(ubyte[])(epilogue.representation);
+
+		return requestRaw(HTTP.Method.post, pkgPath(packageName) ~ "/set_logo",
+			bodyBytes, "multipart/form-data; boundary=" ~ boundary);
+	}
+
+	RegistryResult deleteLogo(string packageName)
+	{
+		enforce(packageName.length, "Package name required");
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/delete_logo", null, null);
+	}
+
+	RegistryResult setRepository(string packageName, string kind, string owner, string project)
+	{
+		enforce(packageName.length, "Package name required");
+		auto form = "kind=" ~ encodeComponent(kind)
+			~ "&owner=" ~ encodeComponent(owner)
+			~ "&project=" ~ encodeComponent(project);
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/set_repository",
+			form, "application/x-www-form-urlencoded");
+	}
+
+	RegistryResult addSharedUser(string packageName, string username, uint permissions)
+	{
+		enforce(packageName.length, "Package name required");
+		enforce(username.length, "Username required");
+		// Multiple permissions fields with same name; encode as repeated keys.
+		string form = "username=" ~ encodeComponent(username);
+		foreach (bit; [1u, 2u, 4u, 15u])
+		{
+			if (permissions & bit)
+				form ~= "&permissions=" ~ bit.to!string;
+		}
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/add_shared_user",
+			form, "application/x-www-form-urlencoded");
+	}
+
+	/// Step 1 of owner delete — shows confirm page; we immediately follow with remove_confirm.
+	RegistryResult removePackage(string packageName)
+	{
+		enforce(packageName.length, "Package name required");
+		auto step1 = request(HTTP.Method.post, pkgPath(packageName) ~ "/remove", null, null);
+		enforce(step1.ok || step1.status == 200,
+			"remove failed HTTP " ~ step1.status.to!string ~ ": " ~ extractAlert(step1.body_));
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/remove_confirm", null, null);
+	}
+
+	RegistryResult leavePackage(string packageName)
+	{
+		enforce(packageName.length, "Package name required");
+		return request(HTTP.Method.post, pkgPath(packageName) ~ "/leave", null, null);
+	}
+
 	bool packageExists(string packageName)
 	{
 		auto res = request(HTTP.Method.get,
@@ -120,7 +248,6 @@ final class DubRegistryClient
 		return res.body_.strip.length > 0;
 	}
 
-	/// Fetch latest version string, or null if missing.
 	string latestVersion(string packageName)
 	{
 		auto res = request(HTTP.Method.get,
@@ -133,22 +260,47 @@ final class DubRegistryClient
 	}
 
 private:
-	RegistryResult request(HTTP.Method method, string url, string body_, string contentType)
+	string pkgPath(string packageName)
+	{
+		return cfg.registryUrl ~ "/my_packages/" ~ encodeComponent(packageName);
+	}
+
+	void enforceAuth(RegistryResult res, string lower)
+	{
+		if (res.status == 401 || res.status == 403
+			|| (res.status == 200 && lower.canFind("please enter your user name and password")))
+		{
+			throw new Exception("Not authenticated — login first");
+		}
+	}
+
+	RegistryResult request(HTTP.Method method, string url, string body_, string contentType,
+		string accept = "text/html,application/json,*/*")
+	{
+		const(ubyte)[] raw;
+		if (body_ !is null)
+			raw = cast(const(ubyte)[]) body_.representation;
+		return requestRaw(method, url, raw, contentType, accept);
+	}
+
+	RegistryResult requestRaw(HTTP.Method method, string url, const(ubyte)[] bodyBytes,
+		string contentType, string accept = "text/html,application/json,*/*")
 	{
 		auto http = HTTP();
 		http.url = url;
 		http.method = method;
 		http.setCookieJar(cfg.cookieJar);
 		http.maxRedirects = 10;
-		http.addRequestHeader("User-Agent", "dub-publish/0.1 (+https://github.com/dlang-supplemental/dub-publish)");
-		http.addRequestHeader("Accept", "text/html,application/json,*/*");
+		http.addRequestHeader("User-Agent",
+			"dub-publish/0.2 (+https://github.com/dlang-supplemental/dub-publish)");
+		http.addRequestHeader("Accept", accept);
 
-		if (body_ !is null)
+		if (bodyBytes !is null)
 		{
 			if (contentType.length)
-				http.setPostData(body_, contentType);
+				http.setPostData(cast(void[]) bodyBytes.dup, contentType);
 			else
-				http.postData = body_;
+				http.postData = cast(void[]) bodyBytes.dup;
 		}
 
 		auto buf = appender!string();
@@ -175,7 +327,6 @@ private:
 	}
 }
 
-/// Raised when code.dlang.org reports the package/URL is already registered.
 class AlreadyRegisteredException : Exception
 {
 	this(string msg, string file = __FILE__, size_t line = __LINE__)
@@ -192,6 +343,12 @@ bool isAlreadyRegisteredMessage(string alert)
 		|| lower.canFind("is already registered");
 }
 
+private void normalizeRegistryUrl(ref string url)
+{
+	import dub_publish.config : normalizeRegistryUrl;
+	normalizeRegistryUrl(url);
+}
+
 private string unwrapJsonString(string s)
 {
 	if (s.length >= 2 && s[0] == '"' && s[$ - 1] == '"')
@@ -201,12 +358,11 @@ private string unwrapJsonString(string s)
 
 private string extractAlert(string html)
 {
-	import std.regex : ctRegex, matchFirst;
+	import std.regex : ctRegex, matchFirst, replaceAll, regex;
 	static re = ctRegex!(`<p[^>]*class="[^"]*redAlert[^"]*"[^>]*>([\s\S]*?)</p>`, "i");
 	auto m = matchFirst(html, re);
 	if (!m)
 		return html.length > 500 ? html[0 .. 500] ~ "…" : html;
-	import std.regex : replaceAll, regex;
 	auto text = m[1].replaceAll(regex(`<[^>]+>`), " ").strip;
 	return text.length ? text : m[1].strip;
 }

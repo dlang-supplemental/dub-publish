@@ -1,8 +1,8 @@
 = dub-publish
 
-CLI to register a Git repository with the https://code.dlang.org[DUB package registry].
+CLI to manage packages on the https://code.dlang.org[DUB package registry] — register, update, webhooks, logo, docs URL, categories, permissions, and remove.
 
-Official `dub` has no `publish` / `submit` command. Publishing is done by logging into the registry website and submitting a repository URL; this tool automates that flow.
+Official `dub` has no `publish` / `submit` command. This tool automates the browser "My packages" flows.
 
 == Install
 
@@ -35,23 +35,30 @@ jobs:
 
 [source,console]
 ----
-# credentials via env (preferred in CI)
 set DUB_REGISTRY_USER=yourname
 set DUB_REGISTRY_PASSWORD=secret
 
-# from a package repo (uses git remote origin + dub recipe name)
-dub-publish
-
-# or explicitly
-dub-publish register --url https://github.com/org/repo --ignore-fork
+dub-publish register --ignore-fork
+dub-publish hooks -n mypkg
+dub-publish update -n mypkg
 ----
 
 == Commands
 
-`register` / `publish`:: Log in and `POST /register_package` with the repository URL.
-`status`:: Check whether a package exists (`GET /api/packages/:name/latest`).
+`register` / `publish`:: Log in and `POST /register_package`. Idempotent if already registered (then refreshes).
 `update`:: Queue a metadata refresh (login, or `--secret` webhook).
-`login`:: Verify credentials and refresh the cookie jar.
+`status`:: Check whether a package exists.
+`login`:: Verify credentials.
+`remove`:: Owner delete (`remove` + `remove_confirm`). Requires `--yes`.
+`logo`:: Upload logo (`--logo-file`). png/jpeg/gif/bmp, max 1 MiB.
+`logo-delete`:: Reset to default logo.
+`docs-url`:: Set documentation URL (`--docs-url`).
+`categories`:: Set up to four categories (`--category` repeatable).
+`hooks`:: Enable/regenerate webhook secret; print + save secret and clean generic/GitHub/GitLab URLs (avoids https://github.com/dlang/dub-registry/issues/614[#614] malformation).
+`hooks-disable`:: Revoke webhook secret.
+`repo`:: Transfer repository coordinates (`--kind` / `--owner` / `--project`).
+`perms-add`:: Add a shared user (`--username`, `--perm update|metadata|source|admin`).
+`leave`:: Leave a shared package.
 
 == Options
 
@@ -62,11 +69,17 @@ dub-publish register --url https://github.com/org/repo --ignore-fork
 * `--ignore-fork` — register even when the repo is a fork
 * `--dry-run` — print what would happen
 * `--save-credentials` — store user/password under the local config dir
+* `--secret-out` / `--hooks-out` — override paths for `hooks` output files
 
 Credentials file (created by `--save-credentials`):
 
 * Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials`
 * Unix: `~/.dlang-supplemental/dub-publish/credentials`
+
+Webhook outputs (from `hooks`):
+
+* `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.secret`
+* `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.hooks.txt`
 
 == How versions get published
 
@@ -76,8 +89,6 @@ Registration only links the repository. New versions appear when you push SemVer
 ----
 dub-publish update -n mypkg --secret YOUR_PACKAGE_SECRET
 ----
-
-The secret is shown on the package settings page under _My packages_.
 
 == Changelog
 

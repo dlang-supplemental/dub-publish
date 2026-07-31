@@ -1,5 +1,13 @@
 = Changelog
 
+= Changelog
+
+== 0.2.0 (2026-07-31)
+
+* Owner settings CLI: `logo`, `logo-delete`, `docs-url`, `categories`, `hooks`, `hooks-disable`, `repo`, `perms-add`, `leave`, `remove`.
+* `hooks` regenerates the webhook secret, prints clean generic/GitHub/GitLab URLs (avoids dub-registry #614 malformation), and saves secret + URLs under the local config dir.
+* `register` remains idempotent on "already registered" and refreshes metadata.
+
 == 0.1.2 (2026-07-31)
 
 * Treat "already registered" as success and refresh package metadata (`update`).
