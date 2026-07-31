@@ -54,6 +54,7 @@ final class DubRegistryClient
 	}
 
 	/// Register a repository URL. Set ignoreFork to skip the fork warning page.
+	/// Throws AlreadyRegisteredException when the package/URL is already on the registry.
 	RegistryResult registerPackage(string repoUrl, bool ignoreFork = false)
 	{
 		enforce(repoUrl.length, "Repository URL is required");
@@ -74,7 +75,10 @@ final class DubRegistryClient
 		if (lower.canFind("redalert") || (res.status == 200 && lower.canFind("add new package")
 			&& lower.canFind("error")))
 		{
-			throw new Exception("Registration failed:\n" ~ extractAlert(res.body_));
+			auto alert = extractAlert(res.body_);
+			if (isAlreadyRegisteredMessage(alert))
+				throw new AlreadyRegisteredException(alert);
+			throw new Exception("Registration failed:\n" ~ alert);
 		}
 		if (res.status == 401 || res.status == 403
 			|| (res.status == 200 && lower.canFind("please enter your user name and password")))
@@ -169,6 +173,23 @@ private:
 		res.finalUrl = url;
 		return res;
 	}
+}
+
+/// Raised when code.dlang.org reports the package/URL is already registered.
+class AlreadyRegisteredException : Exception
+{
+	this(string msg, string file = __FILE__, size_t line = __LINE__)
+	{
+		super(msg, file, line);
+	}
+}
+
+bool isAlreadyRegisteredMessage(string alert)
+{
+	auto lower = alert.toLower;
+	return lower.canFind("already registered")
+		|| lower.canFind("already exists")
+		|| lower.canFind("is already registered");
 }
 
 private string unwrapJsonString(string s)

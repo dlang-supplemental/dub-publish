@@ -91,7 +91,7 @@ int main(string[] args)
 		case "login":
 			return cmdLogin(cfg, dryRun);
 		case "register":
-			return cmdRegister(cfg, root, url, ignoreFork, dryRun);
+			return cmdRegister(cfg, root, url, packageName, ignoreFork, dryRun);
 		case "update":
 			return cmdUpdate(cfg, root, packageName, secret, dryRun);
 		case "status":
@@ -121,14 +121,15 @@ int cmdLogin(PublishConfig cfg, bool dryRun)
 	return 0;
 }
 
-int cmdRegister(PublishConfig cfg, string root, string url, bool ignoreFork, bool dryRun)
+int cmdRegister(PublishConfig cfg, string root, string url, string packageName,
+	bool ignoreFork, bool dryRun)
 {
 	if (!url.length)
 		url = detectGitRemoteUrl("origin", root);
 	enforceMsg(url.length > 0,
 		"No repository URL — pass --url or run inside a git repo with an origin remote");
 
-	auto name = readPackageName(root);
+	auto name = packageName.length ? packageName : readPackageName(root);
 	writeln("Registry:   ", cfg.registryUrl);
 	writeln("Repository: ", url);
 	if (name.length)
@@ -142,26 +143,44 @@ int cmdRegister(PublishConfig cfg, string root, string url, bool ignoreFork, boo
 
 	auto client = new DubRegistryClient(cfg);
 	client.login();
-	client.registerPackage(url, ignoreFork);
+
+	bool already = false;
+	try
+		client.registerPackage(url, ignoreFork);
+	catch (AlreadyRegisteredException e)
+	{
+		already = true;
+		writeln("Already registered: ", e.msg);
+	}
 
 	if (name.length)
 	{
 		import core.thread : Thread;
 		import core.time : seconds;
 		// Registry queues ingestion; brief wait then report status.
-		Thread.sleep(2.seconds);
+		if (!already)
+			Thread.sleep(2.seconds);
 		if (client.packageExists(name))
 		{
+			// Refresh metadata so new tags show up without waiting for the poll.
+			auto upd = client.triggerUpdate(name);
+			writeln(already ? "Refreshing existing package." : "Registered.");
+			writeln("Update queued (HTTP ", upd.status, ")");
 			auto ver = client.latestVersion(name);
-			writeln("Registered. Latest: ", ver.length ? ver : "(pending)");
+			writeln("Latest: ", ver.length ? ver : "(pending)");
 			writeln(cfg.registryUrl, "/packages/", name);
-			return 0;
+			return upd.ok ? 0 : 1;
 		}
-		writeln("Submitted. Package may take a minute to appear at ");
+		writeln(already
+			? "Already registered, but package name was not found yet — check the root recipe name."
+			: "Submitted. Package may take a minute to appear at ");
 		writeln(cfg.registryUrl, "/packages/", name);
+		return already ? 1 : 0;
 	}
-	else
-		writeln("Submitted. Check ", cfg.registryUrl, "/my_packages");
+
+	writeln(already
+		? "Already registered. Check " ~ cfg.registryUrl ~ "/my_packages"
+		: "Submitted. Check " ~ cfg.registryUrl ~ "/my_packages");
 	return 0;
 }
 

@@ -1,5 +1,10 @@
 = Changelog
 
+== 0.1.2 (2026-07-31)
+
+* Treat "already registered" as success and refresh package metadata (`update`).
+* Honor `--package` / `-n` on `register` for status and refresh targeting.
+
 == 0.1.1 (2026-07-30)
 
 * Unwrap JSON string quotes from `/api/packages/:name/latest` responses.
