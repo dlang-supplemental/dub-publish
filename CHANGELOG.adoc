@@ -1,5 +1,9 @@
 = Changelog
 
+== 0.3.3 (2026-07-31)
+
+* Drop `--password-stdin`; use `--password` / `-p`, `--password-file`, or `password.incoming`.
+
 == 0.3.2 (2026-07-31)
 
 * Default password drop file `password.incoming` under the config dir (Windows / macOS / Linux).
@@ -8,7 +12,7 @@
 
 == 0.3.1 (2026-07-31)
 
-* `--password-file` and `--password-stdin` for non-interactive / agent-friendly login.
+* `--password-file` for non-interactive / agent-friendly login (plus `--password` / `-p`).
 * Interactive password prompt is opt-in via `--prompt-password` (no longer automatic).
 * Docs: `-p` is not logged by the tool, but is visible in shell history and process lists.
 

@@ -34,7 +34,6 @@ int main(string[] args)
 	bool ignoreFork;
 	bool dryRun;
 	bool saveCreds;
-	bool passwordStdin;
 	bool promptPw;
 	bool yes;
 	bool help;
@@ -69,9 +68,8 @@ int main(string[] args)
 		auto opts = getopt(rest,
 			"registry", "Registry base URL (default https://code.dlang.org)", &registry,
 			"user|u", "Registry username or email (or DUB_REGISTRY_USER)", &user,
-			"password|p", "Registry password (visible in shell history / process list)", &password,
+			"password|p", "Registry password (or DUB_REGISTRY_PASSWORD); visible in shell history / process list", &password,
 			"password-file", "Read password from file (first line); preferred for scripts/agents", &passwordFile,
-			"password-stdin", "Read password from stdin (first line)", &passwordStdin,
 			"prompt-password", "Interactively prompt for password (TTY, no echo)", &promptPw,
 			"url", "Repository URL (default: git remote origin)", &url,
 			"package|n", "Package name (default: from dub.json / dub.sdl)", &packageName,
@@ -106,11 +104,6 @@ int main(string[] args)
 		return 2;
 	}
 
-	if (passwordFile.length && passwordStdin)
-	{
-		stderr.writeln("error: use only one of --password-file or --password-stdin");
-		return 2;
-	}
 	bool passwordFromExplicit;
 	if (passwordFile.length)
 	{
@@ -121,22 +114,6 @@ int main(string[] args)
 		}
 		try
 			password = readPasswordFile(passwordFile);
-		catch (Exception e)
-		{
-			stderr.writeln("error: ", e.msg);
-			return 2;
-		}
-		passwordFromExplicit = true;
-	}
-	else if (passwordStdin)
-	{
-		if (password.length)
-		{
-			stderr.writeln("error: do not combine --password with --password-stdin");
-			return 2;
-		}
-		try
-			password = readPasswordStdin();
 		catch (Exception e)
 		{
 			stderr.writeln("error: ", e.msg);
@@ -201,7 +178,7 @@ int main(string[] args)
 			stderr.writeln("error: password required — write it to:");
 			stderr.writeln("       ", passwordDropPath());
 			stderr.writeln("       then re-run with --save-credentials");
-			stderr.writeln("       (or use --password-file / --password-stdin / -p / env / --prompt-password)");
+			stderr.writeln("       (or use --password-file / -p / env / --prompt-password)");
 			return 2;
 		}
 	}
@@ -664,8 +641,8 @@ Usage:
   #   Windows: %LOCALAPPDATA%\dlang-supplemental\dub-publish\password.incoming
   #   Unix:    ~/.dlang-supplemental/dub-publish/password.incoming
   dub-publish login --user NAME --save-credentials
+  dub-publish login --user NAME --password PASS [--save-credentials]
   dub-publish login --user NAME --password-file PATH [--save-credentials]
-  dub-publish login --user NAME --password-stdin [--save-credentials] < secret.txt
   dub-publish login --user NAME --prompt-password [--save-credentials]
   dub-publish logout
   dub-publish register|publish [options]
@@ -687,7 +664,6 @@ Common options:
   --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD). Appears in shell history
                        and process lists — prefer password.incoming or --password-file.
   --password-file PATH Read password from file (first line)
-  --password-stdin     Read password from stdin (first line)
   --prompt-password    Interactive TTY prompt (no echo); opt-in, not default
   --url URL            Repository URL (default: git remote origin)
   --package, -n NAME   Package name (default: from dub.json / dub.sdl)
@@ -703,7 +679,7 @@ Credentials:
   Write the password (first line) to password.incoming under the config dir, then:
     dub-publish login --user NAME --save-credentials
   That stores DPAPI (Windows) / mode 0600 (elsewhere) credentials and deletes the
-  drop file. Or use --password-file / --password-stdin. -p is visible in ps / history;
+  drop file. Or pass --password / --password-file. -p is visible in ps / history;
   dub-publish does not log it. logout clears the store and any leftover drop file.
   Windows config: %LOCALAPPDATA%\dlang-supplemental\dub-publish\
 
