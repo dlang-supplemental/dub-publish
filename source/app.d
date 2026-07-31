@@ -279,13 +279,13 @@ int cmdStatus(PublishConfig cfg, string root, string packageName, bool dryRun)
 		return 0;
 	}
 	auto client = new DubRegistryClient(cfg);
-	auto ver = client.latestVersion(packageName);
-	if (ver is null)
+	if (!client.packageExists(packageName))
 	{
 		writeln(packageName, ": not found on ", cfg.registryUrl);
 		return 1;
 	}
-	writeln(packageName, ": ", ver);
+	auto ver = client.latestVersion(packageName);
+	writeln(packageName, ": ", ver.length ? ver : "(registered, no versions yet)");
 	writeln(cfg.registryUrl, "/packages/", packageName);
 	return 0;
 }

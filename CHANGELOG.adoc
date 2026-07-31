@@ -2,6 +2,10 @@
 
 = Changelog
 
+== 0.2.1 (2026-07-31)
+
+* `status` / register ingest poll use `/api/packages/:name/info` so a package registered with zero versions still counts as present (HTML and `/latest` 404 until the first tag is ingested).
+
 == 0.2.0 (2026-07-31)
 
 * Owner settings CLI: `logo`, `logo-delete`, `docs-url`, `categories`, `hooks`, `hooks-disable`, `repo`, `perms-add`, `leave`, `remove`.

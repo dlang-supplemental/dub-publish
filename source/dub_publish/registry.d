@@ -246,6 +246,20 @@ final class DubRegistryClient
 
 	bool packageExists(string packageName)
 	{
+		// /latest 404s when the package is registered but has no versions yet.
+		// /info returns the package document in that case.
+		auto info = request(HTTP.Method.get,
+			cfg.registryUrl ~ "/api/packages/" ~ encodeComponent(packageName) ~ "/info",
+			null, null);
+		if (info.status == 404)
+			return false;
+		if (info.ok)
+		{
+			auto body = info.body_.strip;
+			if (!body.length || body.canFind("\"statusMessage\"") && body.canFind("not found"))
+				return false;
+			return body.canFind("\"name\"");
+		}
 		auto res = request(HTTP.Method.get,
 			cfg.registryUrl ~ "/api/packages/" ~ encodeComponent(packageName) ~ "/latest",
 			null, null);
@@ -253,7 +267,7 @@ final class DubRegistryClient
 			return false;
 		if (!res.ok)
 			throw new Exception("Status check failed HTTP " ~ res.status.to!string ~ ": " ~ res.body_);
-		return res.body_.strip.length > 0;
+		return res.body_.strip.length > 0 && !res.body_.canFind("Package not found");
 	}
 
 	string latestVersion(string packageName)
