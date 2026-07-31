@@ -1,6 +1,11 @@
 = Changelog
 
-= Changelog
+== 0.3.0 (2026-07-31)
+
+* Local credential store is no longer plaintext: Windows uses DPAPI (`credentials.v1`); other platforms Base64 + mode `0600`.
+* `login` prompts for a password when missing (no echo); `--save-credentials` writes the protected store.
+* `logout` clears stored credentials (including legacy plaintext `credentials` files).
+* Legacy plaintext files are upgraded to the protected format on load.
 
 == 0.2.1 (2026-07-31)
 
@@ -30,3 +35,4 @@
 * Credentials via flags, environment, or local config file
 
 link:changelog-details/2026-07-22 - initial dub-publish cli.adoc[Details]
+link:changelog-details/2026-07-31 - protected local credentials.adoc[Details]

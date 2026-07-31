@@ -35,20 +35,23 @@ jobs:
 
 [source,console]
 ----
-set DUB_REGISTRY_USER=yourname
-set DUB_REGISTRY_PASSWORD=secret
+dub-publish login --user yourname --save-credentials
+# prompts for password (no echo); stores it under the local config dir
 
 dub-publish register --ignore-fork
 dub-publish hooks -n mypkg
 dub-publish update -n mypkg
 ----
 
+CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASSWORD`) — do not rely on the local store in Actions.
+
 == Commands
 
+`login`:: Verify credentials. With `--save-credentials`, store them locally after a silent password prompt if needed.
+`logout`:: Delete the local credential store.
 `register` / `publish`:: Log in and `POST /register_package`. Idempotent if already registered (then refreshes).
 `update`:: Queue a metadata refresh (login, or `--secret` webhook).
 `status`:: Check whether a package exists.
-`login`:: Verify credentials.
 `remove`:: Owner delete (`remove` + `remove_confirm`). Requires `--yes`.
 `logo`:: Upload logo (`--logo-file`). png/jpeg/gif/bmp, max 1 MiB.
 `logo-delete`:: Reset to default logo.
@@ -68,13 +71,23 @@ dub-publish update -n mypkg
 * `--package` / `-n` — package name (default: from `dub.json` / `dub.sdl`)
 * `--ignore-fork` — register even when the repo is a fork
 * `--dry-run` — print what would happen
-* `--save-credentials` — store user/password under the local config dir
+* `--save-credentials` — store user/password locally (see below)
 * `--secret-out` / `--hooks-out` — override paths for `hooks` output files
 
-Credentials file (created by `--save-credentials`):
+=== Local credentials
 
-* Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials`
-* Unix: `~/.dlang-supplemental/dub-publish/credentials`
+Passwords are **not** one-way hashed: the CLI must replay them to the registry.
+Industry practice for this is OS-backed reversible protection:
+
+* **Windows:** DPAPI bound to the current user (`credentials.v1`)
+* **Elsewhere:** Base64 payload in `credentials.v1` with file mode `0600`
+
+Paths:
+
+* Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1`
+* Unix: `~/.dlang-supplemental/dub-publish/credentials.v1`
+
+Legacy plaintext `credentials` files are upgraded automatically on load.
 
 Webhook outputs (from `hooks`):
 

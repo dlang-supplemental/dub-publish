@@ -42,7 +42,7 @@ int main(string[] args)
 	{
 		auto c = args[1];
 		if (c.among!(
-				"register", "publish", "update", "status", "login", "help",
+				"register", "publish", "update", "status", "login", "logout", "help",
 				"remove", "logo", "logo-delete", "docs-url", "categories",
 				"hooks", "hooks-disable", "repo", "perms-add", "leave"))
 		{
@@ -83,7 +83,7 @@ int main(string[] args)
 			"perm", "Permission flag for perms-add: update|metadata|source|admin (repeatable)", &permFlags,
 			"ignore-fork", "Allow registering a forked repository", &ignoreFork,
 			"dry-run", "Print actions without contacting the registry", &dryRun,
-			"save-credentials", "Save username/password under the local config dir", &saveCreds,
+			"save-credentials", "Save username/password locally (DPAPI on Windows; mode 0600 elsewhere)", &saveCreds,
 			"yes|y", "Confirm destructive actions (remove)", &yes,
 			"h|help", "Show help", &help,
 		);
@@ -101,17 +101,50 @@ int main(string[] args)
 	}
 
 	auto cfg = loadConfig(registry, user, password);
-	if (saveCreds)
+	if (command == "logout")
 	{
-		if (!cfg.user.length || !cfg.password.length)
+		if (dryRun)
 		{
-			stderr.writeln("error: --save-credentials needs --user and --password (or env vars)");
+			writeln("Would clear stored credentials under ", configDir());
+			return 0;
+		}
+		if (clearCredentials())
+			writeln("Cleared stored credentials under ", configDir());
+		else
+			writeln("No stored credentials found under ", configDir());
+		return 0;
+	}
+
+	if (saveCreds || (command == "login" && (!cfg.password.length || !cfg.user.length)))
+	{
+		if (!cfg.user.length)
+		{
+			stderr.writeln("error: pass --user (or DUB_REGISTRY_USER) to save / log in");
 			return 2;
 		}
-		saveCredentials(cfg.user, cfg.password);
-		writeln("Saved credentials to ", configDir());
-		if (command == "login")
-			return 0;
+		if (!cfg.password.length)
+		{
+			cfg.password = promptPassword("DUB registry password: ");
+			if (!cfg.password.length)
+			{
+				stderr.writeln("error: empty password");
+				return 2;
+			}
+		}
+	}
+
+	if (saveCreds)
+	{
+		if (dryRun)
+			writeln("Would save credentials under ", configDir());
+		else
+		{
+			saveCredentials(cfg.user, cfg.password);
+			version (Windows)
+				writeln("Saved credentials (Windows DPAPI) under ", configDir());
+			else
+				writeln("Saved credentials (mode 0600) under ", configDir());
+		}
 	}
 
 	try
@@ -523,8 +556,10 @@ void printHelp()
 Automates owner actions that the website exposes under My packages.
 
 Usage:
+  dub-publish login --user NAME [--password PASS] [--save-credentials]
+  dub-publish logout
   dub-publish register|publish [options]
-  dub-publish update|status|login [options]
+  dub-publish update|status [options]
   dub-publish remove --yes [options]
   dub-publish logo --logo-file PATH [options]
   dub-publish logo-delete [options]
@@ -539,16 +574,21 @@ Usage:
 Common options:
   --registry URL       Registry base URL (default https://code.dlang.org)
   --user, -u NAME      Username or email (env: DUB_REGISTRY_USER)
-  --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD)
+  --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD); prompted if missing on login/save
   --url URL            Repository URL (default: git remote origin)
   --package, -n NAME   Package name (default: from dub.json / dub.sdl)
   --secret SECRET      Webhook secret for unauthenticated update
   --root DIR           Package directory (default: .)
   --ignore-fork        Allow registering a forked repository
   --dry-run            Print actions only
-  --save-credentials   Store user/password in the local config dir
+  --save-credentials   Store user/password locally (Windows DPAPI; else mode 0600)
   --yes, -y            Confirm destructive actions
   -h, --help           Show this help
+
+Credentials:
+  Passwords cannot be one-way hashed for later registry login. Windows stores them
+  with DPAPI (current user). File: %LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1
+  logout clears the store. Legacy plaintext "credentials" files are upgraded on load.
 
 Notes:
   Logo: png/jpeg/gif/bmp, max 1 MiB, dimensions 2x2..2048x2048 (registry resizes to <=512).
