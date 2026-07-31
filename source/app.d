@@ -111,6 +111,7 @@ int main(string[] args)
 		stderr.writeln("error: use only one of --password-file or --password-stdin");
 		return 2;
 	}
+	bool passwordFromExplicit;
 	if (passwordFile.length)
 	{
 		if (password.length)
@@ -125,6 +126,7 @@ int main(string[] args)
 			stderr.writeln("error: ", e.msg);
 			return 2;
 		}
+		passwordFromExplicit = true;
 	}
 	else if (passwordStdin)
 	{
@@ -140,7 +142,10 @@ int main(string[] args)
 			stderr.writeln("error: ", e.msg);
 			return 2;
 		}
+		passwordFromExplicit = true;
 	}
+	else if (password.length)
+		passwordFromExplicit = true;
 
 	auto cfg = loadConfig(registry, user, password);
 	if (command == "logout")
@@ -155,6 +160,23 @@ int main(string[] args)
 		else
 			writeln("No stored credentials found under ", configDir());
 		return 0;
+	}
+
+	// Default drop file: consumed with --save-credentials when no CLI/env password.
+	// Prefer drop over an already-stored credential so agents can rotate.
+	import std.file : exists;
+	import std.process : environment;
+	bool fromEnv = !passwordFromExplicit
+		&& environment.get("DUB_REGISTRY_PASSWORD", "").length > 0;
+	if (saveCreds && !passwordFromExplicit && !fromEnv && exists(passwordDropPath()))
+	{
+		try
+			cfg.password = readPasswordFile(passwordDropPath());
+		catch (Exception e)
+		{
+			stderr.writeln("error: ", e.msg);
+			return 2;
+		}
 	}
 
 	if (!cfg.password.length && promptPw)
@@ -176,24 +198,21 @@ int main(string[] args)
 		}
 		if (!cfg.password.length)
 		{
-			stderr.writeln("error: password required — use --password-file, --password-stdin,");
-			stderr.writeln("       -p / DUB_REGISTRY_PASSWORD, saved store, or --prompt-password");
+			stderr.writeln("error: password required — write it to:");
+			stderr.writeln("       ", passwordDropPath());
+			stderr.writeln("       then re-run with --save-credentials");
+			stderr.writeln("       (or use --password-file / --password-stdin / -p / env / --prompt-password)");
 			return 2;
 		}
 	}
 
 	if (saveCreds)
 	{
-		if (dryRun)
-			writeln("Would save credentials under ", configDir());
-		else
-		{
-			saveCredentials(cfg.user, cfg.password);
-			version (Windows)
-				writeln("Saved credentials (Windows DPAPI) under ", configDir());
-			else
-				writeln("Saved credentials (mode 0600) under ", configDir());
-		}
+		auto saveRc = persistCredentialsVerified(cfg, dryRun);
+		if (saveRc != 0)
+			return saveRc;
+		if (command == "login")
+			return 0;
 	}
 
 	try
@@ -238,6 +257,42 @@ int main(string[] args)
 		stderr.writeln("error: ", e.msg);
 		return 1;
 	}
+}
+
+/// Verify registry login, then write the protected store and delete password.incoming.
+int persistCredentialsVerified(PublishConfig cfg, bool dryRun)
+{
+	import std.file : exists;
+
+	if (dryRun)
+	{
+		writeln("Would verify login as ", cfg.user, " on ", cfg.registryUrl);
+		writeln("Would save credentials under ", configDir());
+		if (exists(passwordDropPath()))
+			writeln("Would remove password drop file ", passwordDropPath());
+		return 0;
+	}
+	try
+	{
+		auto client = new DubRegistryClient(cfg);
+		client.login();
+	}
+	catch (Exception e)
+	{
+		stderr.writeln("error: ", e.msg);
+		stderr.writeln("Not saving credentials; password drop file left in place if present.");
+		return 1;
+	}
+	ensureConfigDir();
+	saveCredentials(cfg.user, cfg.password);
+	version (Windows)
+		writeln("Saved credentials (Windows DPAPI) under ", configDir());
+	else
+		writeln("Saved credentials (mode 0600) under ", configDir());
+	if (clearPasswordDrop())
+		writeln("Removed password drop file ", passwordDropPath());
+	writeln("Logged in to ", cfg.registryUrl, " as ", cfg.user);
+	return 0;
 }
 
 string requirePackage(string root, string packageName)
@@ -605,6 +660,10 @@ void printHelp()
 Automates owner actions that the website exposes under My packages.
 
 Usage:
+  # Agent-friendly default drop file (deleted after successful save):
+  #   Windows: %LOCALAPPDATA%\dlang-supplemental\dub-publish\password.incoming
+  #   Unix:    ~/.dlang-supplemental/dub-publish/password.incoming
+  dub-publish login --user NAME --save-credentials
   dub-publish login --user NAME --password-file PATH [--save-credentials]
   dub-publish login --user NAME --password-stdin [--save-credentials] < secret.txt
   dub-publish login --user NAME --prompt-password [--save-credentials]
@@ -626,7 +685,7 @@ Common options:
   --registry URL       Registry base URL (default https://code.dlang.org)
   --user, -u NAME      Username or email (env: DUB_REGISTRY_USER)
   --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD). Appears in shell history
-                       and process lists — prefer --password-file for scripts/agents.
+                       and process lists — prefer password.incoming or --password-file.
   --password-file PATH Read password from file (first line)
   --password-stdin     Read password from stdin (first line)
   --prompt-password    Interactive TTY prompt (no echo); opt-in, not default
@@ -636,16 +695,17 @@ Common options:
   --root DIR           Package directory (default: .)
   --ignore-fork        Allow registering a forked repository
   --dry-run            Print actions only
-  --save-credentials   Store user/password locally (Windows DPAPI; else mode 0600)
+  --save-credentials   Store user/password locally; consumes password.incoming then deletes it
   --yes, -y            Confirm destructive actions
   -h, --help           Show this help
 
 Credentials:
-  Prefer --password-file or --password-stdin, then --save-credentials so later
-  commands need no secret. -p is fine for humans but is visible in ps / history;
-  dub-publish does not log it. Passwords cannot be one-way hashed for later login.
-  Windows DPAPI store: %LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1
-  logout clears the store. Legacy plaintext "credentials" files are upgraded on load.
+  Write the password (first line) to password.incoming under the config dir, then:
+    dub-publish login --user NAME --save-credentials
+  That stores DPAPI (Windows) / mode 0600 (elsewhere) credentials and deletes the
+  drop file. Or use --password-file / --password-stdin. -p is visible in ps / history;
+  dub-publish does not log it. logout clears the store and any leftover drop file.
+  Windows config: %LOCALAPPDATA%\dlang-supplemental\dub-publish\
 
 Notes:
   Logo: png/jpeg/gif/bmp, max 1 MiB, dimensions 2x2..2048x2048 (registry resizes to <=512).

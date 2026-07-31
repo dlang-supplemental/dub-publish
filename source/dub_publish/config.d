@@ -104,11 +104,11 @@ void saveCredentials(string user, string password)
 	}
 }
 
-/// Delete stored credentials (new + legacy filenames).
+/// Delete stored credentials (new + legacy filenames) and any leftover drop file.
 bool clearCredentials()
 {
 	bool removed;
-	foreach (name; ["credentials.v1", "credentials"])
+	foreach (name; ["credentials.v1", "credentials", "password.incoming"])
 	{
 		auto path = buildPath(configDir(), name);
 		if (exists(path))
@@ -123,6 +123,39 @@ bool clearCredentials()
 string credentialsPath()
 {
 	return buildPath(configDir(), "credentials.v1");
+}
+
+/**
+ * Default path for a one-shot plaintext password drop file.
+ *
+ * Agents/scripts write the password here (first line), then run
+ * `login --user … --save-credentials`. On success the app stores it with
+ * DPAPI (Windows) / mode 0600 (elsewhere) and deletes this file.
+ *
+ * Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\password.incoming`
+ * macOS/Linux: `~/.dlang-supplemental/dub-publish/password.incoming`
+ */
+string passwordDropPath()
+{
+	return buildPath(configDir(), "password.incoming");
+}
+
+/// Create the config directory if needed (so an agent can write password.incoming).
+string ensureConfigDir()
+{
+	auto home = configDir();
+	mkdirRecurse(home);
+	return home;
+}
+
+/// Delete the password drop file if present. Returns true when a file was removed.
+bool clearPasswordDrop()
+{
+	auto path = passwordDropPath();
+	if (!exists(path))
+		return false;
+	remove(path);
+	return true;
 }
 
 string configDir()

@@ -1,5 +1,11 @@
 = Changelog
 
+== 0.3.2 (2026-07-31)
+
+* Default password drop file `password.incoming` under the config dir (Windows / macOS / Linux).
+* `login --save-credentials` reads it when no CLI/env password is given, stores protected credentials, then deletes the drop file.
+* `logout` also removes a leftover drop file.
+
 == 0.3.1 (2026-07-31)
 
 * `--password-file` and `--password-stdin` for non-interactive / agent-friendly login.

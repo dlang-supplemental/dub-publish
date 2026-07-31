@@ -33,16 +33,25 @@ jobs:
 
 == Quick start
 
-Agent / script friendly (password never on the argv):
+Agent / script friendly — default drop file (same path on Windows, macOS, and Linux under the config dir):
 
 [source,console]
 ----
 # PowerShell
-dub-publish login --user yourname --password-file $env:USERPROFILE\.secrets\dub-password.txt --save-credentials
+$dir = Join-Path $env:LOCALAPPDATA "dlang-supplemental\dub-publish"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Content -Path (Join-Path $dir "password.incoming") -Value "your-registry-password"
+dub-publish login --user yourname --save-credentials
+# stores DPAPI credentials and deletes password.incoming
+----
 
-# or pipe
-Get-Content $env:USERPROFILE\.secrets\dub-password.txt -TotalCount 1 |
-  dub-publish login --user yourname --password-stdin --save-credentials
+[source,console]
+----
+# macOS / Linux
+mkdir -p ~/.dlang-supplemental/dub-publish
+printf '%s\n' 'your-registry-password' > ~/.dlang-supplemental/dub-publish/password.incoming
+chmod 600 ~/.dlang-supplemental/dub-publish/password.incoming
+dub-publish login --user yourname --save-credentials
 ----
 
 After that, later commands reuse the local store (no password flags):
@@ -54,14 +63,14 @@ dub-publish hooks -n mypkg
 dub-publish update -n mypkg
 ----
 
-Interactive humans can use `--prompt-password` (TTY, no echo). `-p` / `--password` works but appears in shell history and process lists — `dub-publish` itself does not log it.
+Overrides: `--password-file`, `--password-stdin`, or `-p`. Interactive humans can use `--prompt-password`. `-p` appears in shell history and process lists — `dub-publish` itself does not log it.
 
 CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASSWORD`) — do not rely on the local store in Actions.
 
 == Commands
 
-`login`:: Verify credentials. Pair with `--save-credentials` to persist them. Password via `--password-file`, `--password-stdin`, `-p` / env, saved store, or `--prompt-password`.
-`logout`:: Delete the local credential store.
+`login`:: Verify credentials. Pair with `--save-credentials` to persist them. Password via default `password.incoming` drop file, `--password-file`, `--password-stdin`, `-p` / env, saved store, or `--prompt-password`.
+`logout`:: Delete the local credential store and any leftover `password.incoming`.
 `register` / `publish`:: Log in and `POST /register_package`. Idempotent if already registered (then refreshes).
 `update`:: Queue a metadata refresh (login, or `--secret` webhook).
 `status`:: Check whether a package exists.
@@ -80,14 +89,14 @@ CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASS
 
 * `--registry` — default `https://code.dlang.org`
 * `--user` / `--password` — or `DUB_REGISTRY_USER` / `DUB_REGISTRY_PASSWORD`
-* `--password-file` — read password from file (first line); preferred for agents
+* `--password-file` — read password from file (first line)
 * `--password-stdin` — read password from stdin (first line)
 * `--prompt-password` — interactive TTY prompt (opt-in)
 * `--url` — repository URL (default: `git remote get-url origin`)
 * `--package` / `-n` — package name (default: from `dub.json` / `dub.sdl`)
 * `--ignore-fork` — register even when the repo is a fork
 * `--dry-run` — print what would happen
-* `--save-credentials` — store user/password locally (see below)
+* `--save-credentials` — store user/password locally; consumes + deletes `password.incoming`
 * `--secret-out` / `--hooks-out` — override paths for `hooks` output files
 
 === Local credentials
@@ -98,14 +107,19 @@ Industry practice for this is OS-backed reversible protection:
 * **Windows:** DPAPI bound to the current user (`credentials.v1`)
 * **Elsewhere:** Base64 payload in `credentials.v1` with file mode `0600`
 
-Paths:
+Default password drop file (plaintext, deleted after `--save-credentials`):
+
+* Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\password.incoming`
+* macOS / Linux: `~/.dlang-supplemental/dub-publish/password.incoming`
+
+Stored credentials:
 
 * Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1`
 * Unix: `~/.dlang-supplemental/dub-publish/credentials.v1`
 
 Legacy plaintext `credentials` files are upgraded automatically on load.
 
-About `-p`: the app does not write the password to its own logs, but the shell may keep it in history and other local users can see it in the process list. Prefer `--password-file` / `--password-stdin` / saved store.
+About `-p`: the app does not write the password to its own logs, but the shell may keep it in history and other local users can see it in the process list. Prefer the drop file / `--password-file` / `--password-stdin` / saved store.
 
 Webhook outputs (from `hooks`):
 
