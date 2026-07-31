@@ -98,7 +98,36 @@ version (Windows)
 	}
 }
 
-/// Read a password from the console without echoing (TTY). Falls back to stdin line.
+/// Read a password from a file (first line, trimmed). Prefer this over `-p` for agents/scripts.
+string readPasswordFile(string path)
+{
+	import std.file : exists, readText;
+	import std.string : chomp, strip;
+	enforce(path.length, "password file path is empty");
+	enforce(exists(path), "password file not found: " ~ path);
+	auto text = readText(path);
+	import std.string : lineSplitter;
+	import std.range : empty, front;
+	auto lines = text.lineSplitter;
+	enforce(!lines.empty, "password file is empty: " ~ path);
+	auto pw = lines.front.chomp.strip;
+	enforce(pw.length, "password file first line is empty: " ~ path);
+	return pw;
+}
+
+/// Read a password from stdin (first line). Use with a pipe; not for interactive TTY prompts.
+string readPasswordStdin()
+{
+	import std.stdio : stdin;
+	import std.string : chomp, strip;
+	auto line = stdin.readln();
+	enforce(line !is null, "no password on stdin");
+	auto pw = line.chomp.strip;
+	enforce(pw.length, "empty password on stdin");
+	return pw;
+}
+
+/// Read a password from the console without echoing (TTY). Opt-in via --prompt-password.
 string promptPassword(string prompt = "Password: ")
 {
 	import std.stdio : stderr, stdin;
@@ -160,6 +189,9 @@ string promptPassword(string prompt = "Password: ")
 unittest
 {
 	import std.algorithm : startsWith;
+	import std.file : remove, tempDir, write;
+	import std.path : buildPath;
+
 	auto stored = protectSecret("unit-test-secret");
 	version (Windows)
 		assert(stored.startsWith("dpapi:"));
@@ -167,4 +199,10 @@ unittest
 		assert(stored.startsWith("file:"));
 	assert(unprotectSecret(stored) == "unit-test-secret");
 	assert(unprotectSecret("legacy-plain") == "legacy-plain");
+
+	auto path = buildPath(tempDir(), "dub-publish-pw-test.txt");
+	write(path, "file-secret\nignored\n");
+	scope (exit)
+		remove(path);
+	assert(readPasswordFile(path) == "file-secret");
 }

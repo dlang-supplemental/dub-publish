@@ -1,5 +1,11 @@
 = Changelog
 
+== 0.3.1 (2026-07-31)
+
+* `--password-file` and `--password-stdin` for non-interactive / agent-friendly login.
+* Interactive password prompt is opt-in via `--prompt-password` (no longer automatic).
+* Docs: `-p` is not logged by the tool, but is visible in shell history and process lists.
+
 == 0.3.0 (2026-07-31)
 
 * Local credential store is no longer plaintext: Windows uses DPAPI (`credentials.v1`); other platforms Base64 + mode `0600`.

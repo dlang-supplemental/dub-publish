@@ -16,6 +16,7 @@ int main(string[] args)
 	string registry;
 	string user;
 	string password;
+	string passwordFile;
 	string url;
 	string secret;
 	string packageName;
@@ -33,6 +34,8 @@ int main(string[] args)
 	bool ignoreFork;
 	bool dryRun;
 	bool saveCreds;
+	bool passwordStdin;
+	bool promptPw;
 	bool yes;
 	bool help;
 
@@ -66,7 +69,10 @@ int main(string[] args)
 		auto opts = getopt(rest,
 			"registry", "Registry base URL (default https://code.dlang.org)", &registry,
 			"user|u", "Registry username or email (or DUB_REGISTRY_USER)", &user,
-			"password|p", "Registry password (or DUB_REGISTRY_PASSWORD)", &password,
+			"password|p", "Registry password (visible in shell history / process list)", &password,
+			"password-file", "Read password from file (first line); preferred for scripts/agents", &passwordFile,
+			"password-stdin", "Read password from stdin (first line)", &passwordStdin,
+			"prompt-password", "Interactively prompt for password (TTY, no echo)", &promptPw,
 			"url", "Repository URL (default: git remote origin)", &url,
 			"package|n", "Package name (default: from dub.json / dub.sdl)", &packageName,
 			"secret", "Package update webhook secret", &secret,
@@ -100,6 +106,42 @@ int main(string[] args)
 		return 2;
 	}
 
+	if (passwordFile.length && passwordStdin)
+	{
+		stderr.writeln("error: use only one of --password-file or --password-stdin");
+		return 2;
+	}
+	if (passwordFile.length)
+	{
+		if (password.length)
+		{
+			stderr.writeln("error: do not combine --password with --password-file");
+			return 2;
+		}
+		try
+			password = readPasswordFile(passwordFile);
+		catch (Exception e)
+		{
+			stderr.writeln("error: ", e.msg);
+			return 2;
+		}
+	}
+	else if (passwordStdin)
+	{
+		if (password.length)
+		{
+			stderr.writeln("error: do not combine --password with --password-stdin");
+			return 2;
+		}
+		try
+			password = readPasswordStdin();
+		catch (Exception e)
+		{
+			stderr.writeln("error: ", e.msg);
+			return 2;
+		}
+	}
+
 	auto cfg = loadConfig(registry, user, password);
 	if (command == "logout")
 	{
@@ -115,21 +157,28 @@ int main(string[] args)
 		return 0;
 	}
 
-	if (saveCreds || (command == "login" && (!cfg.password.length || !cfg.user.length)))
+	if (!cfg.password.length && promptPw)
+	{
+		cfg.password = promptPassword("DUB registry password: ");
+		if (!cfg.password.length)
+		{
+			stderr.writeln("error: empty password");
+			return 2;
+		}
+	}
+
+	if (saveCreds || command == "login")
 	{
 		if (!cfg.user.length)
 		{
-			stderr.writeln("error: pass --user (or DUB_REGISTRY_USER) to save / log in");
+			stderr.writeln("error: pass --user (or DUB_REGISTRY_USER)");
 			return 2;
 		}
 		if (!cfg.password.length)
 		{
-			cfg.password = promptPassword("DUB registry password: ");
-			if (!cfg.password.length)
-			{
-				stderr.writeln("error: empty password");
-				return 2;
-			}
+			stderr.writeln("error: password required — use --password-file, --password-stdin,");
+			stderr.writeln("       -p / DUB_REGISTRY_PASSWORD, saved store, or --prompt-password");
+			return 2;
 		}
 	}
 
@@ -556,7 +605,9 @@ void printHelp()
 Automates owner actions that the website exposes under My packages.
 
 Usage:
-  dub-publish login --user NAME [--password PASS] [--save-credentials]
+  dub-publish login --user NAME --password-file PATH [--save-credentials]
+  dub-publish login --user NAME --password-stdin [--save-credentials] < secret.txt
+  dub-publish login --user NAME --prompt-password [--save-credentials]
   dub-publish logout
   dub-publish register|publish [options]
   dub-publish update|status [options]
@@ -574,7 +625,11 @@ Usage:
 Common options:
   --registry URL       Registry base URL (default https://code.dlang.org)
   --user, -u NAME      Username or email (env: DUB_REGISTRY_USER)
-  --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD); prompted if missing on login/save
+  --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD). Appears in shell history
+                       and process lists — prefer --password-file for scripts/agents.
+  --password-file PATH Read password from file (first line)
+  --password-stdin     Read password from stdin (first line)
+  --prompt-password    Interactive TTY prompt (no echo); opt-in, not default
   --url URL            Repository URL (default: git remote origin)
   --package, -n NAME   Package name (default: from dub.json / dub.sdl)
   --secret SECRET      Webhook secret for unauthenticated update
@@ -586,8 +641,10 @@ Common options:
   -h, --help           Show this help
 
 Credentials:
-  Passwords cannot be one-way hashed for later registry login. Windows stores them
-  with DPAPI (current user). File: %LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1
+  Prefer --password-file or --password-stdin, then --save-credentials so later
+  commands need no secret. -p is fine for humans but is visible in ps / history;
+  dub-publish does not log it. Passwords cannot be one-way hashed for later login.
+  Windows DPAPI store: %LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1
   logout clears the store. Legacy plaintext "credentials" files are upgraded on load.
 
 Notes:

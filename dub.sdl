@@ -3,7 +3,7 @@ description "CLI to register Git repositories with the DUB package registry (cod
 authors "amdphreak"
 copyright "Copyright © 2026, amdphreak"
 license "BSL-1.0"
-version "0.3.0"
+version "0.3.1"
 
 targetType "executable"
 targetName "dub-publish"
