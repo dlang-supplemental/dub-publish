@@ -30,13 +30,22 @@ Official `dub` has no `publish` / `submit` command. This tool automates the brow
 
 == Installation
 
-=== Windows (recommended)
+Supported release targets: **windows-x64**, **linux-x64**, **macos-x64**, **macos-arm64** (arm only on macOS).
 
-Download the latest **stable** zip from https://github.com/dlang-supplemental/dub-publish/releases[Releases], extract, then:
+=== Windows
+
+Download the `windows-x64` zip from https://github.com/dlang-supplemental/dub-publish/releases[Releases], extract, then:
 
 [source,powershell]
 ----
 powershell -ExecutionPolicy Bypass -File .\install.ps1
+----
+
+Or from nushell:
+
+[source,nushell]
+----
+nu install.nu
 ----
 
 That copies `dub-publish.exe` to `%LOCALAPPDATA%\Programs\dlang-supplemental\dub-publish` and adds it to your **User PATH**. Refresh PATH in the current shell:
@@ -47,6 +56,23 @@ $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Env
 dub-publish version
 ----
 
+[source,nushell]
+----
+$env.PATH = ($env.PATH | prepend $"($env.LOCALAPPDATA)\\Programs\\dlang-supplemental\\dub-publish")
+----
+
+=== macOS / Linux
+
+Download `linux-x64`, `macos-x64`, or `macos-arm64`, extract, then:
+
+[source,console]
+----
+bash ./install.sh
+# or: nu install.nu
+----
+
+Installs under `~/.local/share/dlang-supplemental/dub-publish` and symlinks into `~/.local/bin`.
+
 A **rolling** prerelease tracks `main` (`tag: rolling`) for bleeding-edge builds.
 
 === Winget
@@ -55,13 +81,13 @@ Package id: `dlang-supplemental.dub-publish` (CI is ready; first listing still n
 
 === From source
 
-Requires `openshellorg/prohelp` at `deps/prohelp` (CI checkouts `v0.2.1`; locally clone or junction it there).
+Requires `openshellorg/prohelp` at `deps/prohelp` (CI checkouts `v0.2.2`; locally clone or junction it there).
 
 [source,console]
 ----
 git clone https://github.com/dlang-supplemental/dub-publish.git
 cd dub-publish
-git clone --branch v0.2.1 https://github.com/openshellorg/prohelp.git deps/prohelp
+git clone --branch v0.2.2 https://github.com/openshellorg/prohelp.git deps/prohelp
 dub build --build=release
 ----
 

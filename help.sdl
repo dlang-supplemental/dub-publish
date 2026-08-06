@@ -14,6 +14,16 @@ command "dub-publish" {
         example "Register with explicit URL" "dub-publish register --url https://github.com/org/repo --ignore-fork"
     }
 
+    section "install" {
+        summary "Installers (win / mac / linux)"
+        content "Release archives ship install.ps1 (Windows), install.sh (macOS/Linux), and install.nu (nushell wrapper for both). Targets: windows-x64, linux-x64, macos-x64, macos-arm64."
+
+        example "Windows PowerShell" "powershell -ExecutionPolicy Bypass -File .\\install.ps1"
+        example "Windows / Unix nushell" "nu install.nu"
+        example "macOS / Linux bash" "bash ./install.sh"
+        example "Refresh PATH in nushell" "$env.PATH = ($env.PATH | prepend $installDir)"
+    }
+
     section "commands" {
         summary "Subcommands"
         content "login logout register|publish status update logo logo-delete docs-url categories hooks hooks-disable repo perms-add leave remove version"
@@ -58,7 +68,7 @@ command "dub-publish" {
 
     section "credentials" {
         summary "Local credential store"
-        content "Windows drop file: %LOCALAPPDATA%/dlang-supplemental/dub-publish/password.incoming then login --save-credentials. Unix: ~/.dlang-supplemental/dub-publish/password.incoming"
+        content "Windows: %LOCALAPPDATA%/dlang-supplemental/dub-publish/password.incoming (PowerShell: $env:LOCALAPPDATA\\... ; nushell: $env.LOCALAPPDATA | path join ...). Unix: ~/.dlang-supplemental/dub-publish/password.incoming. Then login --save-credentials."
     }
 
     section "options" {

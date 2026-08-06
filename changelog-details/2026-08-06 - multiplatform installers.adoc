@@ -1,0 +1,14 @@
+== 0.5.0 — Multi-platform installers + nushell (2026-08-06)
+
+=== Platforms
+
+* Windows x64 (zip + `install.ps1`)
+* Linux x64 (tar.gz + `install.sh`)
+* macOS Intel x64 and Apple Silicon arm64 (tar.gz + `install.sh`)
+* Arm only on macOS (no linux-arm / windows-arm artifacts yet)
+
+=== Nushell
+
+* `install.nu` wraps the platform installer and prints a session PATH prepend.
+* PowerShell and bash installers also print the nushell `$env.PATH = (... | prepend …)` hint.
+* prohelp `v0.2.2` uses `%APPDATA%\nushell` on Windows and detects nu via `NU_VERSION` even when `$SHELL` is still bash/zsh.
