@@ -1,10 +1,34 @@
+ifndef::env-github[:icons: font]
+:toc: preamble
+:toclevels: 2
+:sectanchors:
+
+ifndef::env-github[]
+image:https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge[Contributors,link=https://github.com/dlang-supplemental/dub-publish/graphs/contributors]
+image:https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge[Forks,link=https://github.com/dlang-supplemental/dub-publish/network/members]
+image:https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge[Stars,link=https://github.com/dlang-supplemental/dub-publish/stargazers]
+image:https://img.shields.io/github/issues/dlang-supplemental/dub-publish.svg?style=for-the-badge[Issues,link=https://github.com/dlang-supplemental/dub-publish/issues]
+image:https://img.shields.io/github/license/dlang-supplemental/dub-publish.svg?style=for-the-badge[License,link=https://github.com/dlang-supplemental/dub-publish/blob/main/LICENSE]
+endif::[]
+
+ifdef::env-github[]
+image:https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge[Contributors]
+image:https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge[Forks]
+image:https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge[Stars]
+image:https://img.shields.io/github/issues/dlang-supplemental/dub-publish.svg?style=for-the-badge[Issues]
+image:https://img.shields.io/github/license/dlang-supplemental/dub-publish.svg?style=for-the-badge[License]
+endif::[]
+
 = dub-publish
 
-CLI to manage packages on the https://code.dlang.org[DUB package registry] — register, update, webhooks, logo, docs URL, categories, permissions, and remove.
+CLI to register Git repositories with the https://code.dlang.org[DUB package registry] — register, update, webhooks, logo, docs URL, categories, permissions, and remove.
+
+link:https://github.com/dlang-supplemental/dub-publish/issues[Report Bug] ·
+link:https://github.com/dlang-supplemental/dub-publish/issues[Request Feature]
 
 Official `dub` has no `publish` / `submit` command. This tool automates the browser "My packages" flows.
 
-== Install
+== Installation
 
 [source,console]
 ----
@@ -31,7 +55,9 @@ jobs:
       DUB_REGISTRY_PASSWORD: ${{ secrets.DUB_REGISTRY_PASSWORD }}
 ----
 
-== Quick start
+== Usage
+
+=== Quick start
 
 Agent / script friendly — default drop file (same path on Windows, macOS, and Linux under the config dir):
 
@@ -67,7 +93,7 @@ Overrides: `--password-file` or `-p` / `--password`. Interactive humans can use 
 
 CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASSWORD`) — do not rely on the local store in Actions.
 
-== Commands
+=== Commands
 
 `login`:: Verify credentials. Pair with `--save-credentials` to persist them. Password via default `password.incoming` drop file, `--password-file`, `-p` / `--password` / env, saved store, or `--prompt-password`.
 `logout`:: Delete the local credential store and any leftover `password.incoming`.
@@ -85,7 +111,7 @@ CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASS
 `perms-add`:: Add a shared user (`--username`, `--perm update|metadata|source|admin`).
 `leave`:: Leave a shared package.
 
-== Options
+=== Options
 
 * `--registry` — default `https://code.dlang.org`
 * `--user` / `--password` — or `DUB_REGISTRY_USER` / `DUB_REGISTRY_PASSWORD`
@@ -125,7 +151,7 @@ Webhook outputs (from `hooks`):
 * `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.secret`
 * `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.hooks.txt`
 
-== How versions get published
+=== How versions get published
 
 Registration only links the repository. New versions appear when you push SemVer tags (`v1.2.3`); the registry polls about twice an hour. You can also trigger an immediate refresh:
 
@@ -140,4 +166,11 @@ See link:CHANGELOG.adoc[CHANGELOG].
 
 == License
 
-Boost Software License 1.0.
+Boost Software License 1.0 — see link:LICENSE[LICENSE].
+
+== Contact
+
+DLang Supplemental — dlang@devcentr.org
+
+* Project: https://github.com/dlang-supplemental/dub-publish
+* Site: https://dlang-supplemental.github.io
