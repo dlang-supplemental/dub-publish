@@ -1,5 +1,14 @@
 = Changelog
 
+== 0.4.0 (2026-08-06)
+
+* Windows release packaging: zip + `install.ps1` (User PATH under `%LOCALAPPDATA%\Programs\…`).
+* GitHub Release workflow: stable on `v*` tags; **rolling** prerelease on `main`.
+* Winget update CI (`dlang-supplemental.dub-publish`) gated on `WINGET_TOKEN` (first listing still manual).
+* `dub-publish version` reports `VERSION` / release stamp.
+
+link:changelog-details/2026-08-06 - windows release packaging.adoc[Details]
+
 == 0.3.3 (2026-07-31)
 
 * Drop `--password-stdin`; use `--password` / `-p`, `--password-file`, or `password.incoming`.

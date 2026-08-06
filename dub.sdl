@@ -3,7 +3,7 @@ description "CLI to register Git repositories with the DUB package registry (cod
 authors "amdphreak"
 copyright "Copyright © 2026, amdphreak"
 license "BSL-1.0"
-# Version comes from git tags (vX.Y.Z).
+# Version comes from git tags (vX.Y.Z) / VERSION file for --version.
 
 targetType "executable"
 targetName "dub-publish"
@@ -12,3 +12,4 @@ versions "DubPublishCli"
 
 importPaths "source"
 sourcePaths "source"
+stringImportPaths "."

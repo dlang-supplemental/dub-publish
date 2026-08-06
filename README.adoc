@@ -30,14 +30,51 @@ Official `dub` has no `publish` / `submit` command. This tool automates the brow
 
 == Installation
 
+=== Windows (recommended)
+
+Download the latest **stable** zip from https://github.com/dlang-supplemental/dub-publish/releases[Releases], extract, then:
+
+[source,powershell]
+----
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+----
+
+That copies `dub-publish.exe` to `%LOCALAPPDATA%\Programs\dlang-supplemental\dub-publish` and adds it to your **User PATH**. Refresh PATH in the current shell:
+
+[source,powershell]
+----
+$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+dub-publish version
+----
+
+A **rolling** prerelease tracks `main` (`tag: rolling`) for bleeding-edge builds.
+
+=== Winget
+
+Package id: `dlang-supplemental.dub-publish` (CI is ready; first listing still needs a one-time `wingetcreate` / winget-pkgs PR — set repo secret `WINGET_TOKEN` afterward for auto updates).
+
+=== From source
+
 [source,console]
 ----
 git clone https://github.com/dlang-supplemental/dub-publish.git
 cd dub-publish
-dub build
+dub build --build=release
 ----
 
-Put the resulting `dub-publish` binary on your `PATH`, or run via `dub run` from a clone.
+Then either put the binary on `PATH`, or run `packaging/install.ps1` from the build directory.
+
+=== Credentials after install
+
+Windows credentials are DPAPI-bound to your user profile and are **not** part of the zip. After install or reinstall:
+
+[source,powershell]
+----
+$dir = Join-Path $env:LOCALAPPDATA "dlang-supplemental\dub-publish"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Content -Path (Join-Path $dir "password.incoming") -Value "your-registry-password"
+dub-publish login --user yourname --save-credentials
+----
 
 === From CI (reusable workflow)
 

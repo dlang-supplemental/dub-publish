@@ -10,6 +10,7 @@ import std.stdio;
 import std.string : strip, toLower;
 
 import dub_publish;
+import dub_publish.version_;
 
 int main(string[] args)
 {
@@ -45,9 +46,15 @@ int main(string[] args)
 		auto c = args[1];
 		if (c.among!(
 				"register", "publish", "update", "status", "login", "logout", "help",
+				"version", "--version",
 				"remove", "logo", "logo-delete", "docs-url", "categories",
 				"hooks", "hooks-disable", "repo", "perms-add", "leave"))
 		{
+			if (c == "version" || c == "--version")
+			{
+				writeln("dub-publish ", dubPublishVersion);
+				return 0;
+			}
 			command = c == "publish" ? "register" : c;
 			rest = args[0] ~ args[2 .. $];
 		}
@@ -645,6 +652,7 @@ Usage:
   dub-publish login --user NAME --password-file PATH [--save-credentials]
   dub-publish login --user NAME --prompt-password [--save-credentials]
   dub-publish logout
+  dub-publish version
   dub-publish register|publish [options]
   dub-publish update|status [options]
   dub-publish remove --yes [options]
