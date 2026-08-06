@@ -90,8 +90,8 @@ Write-Host "  2. dub-publish login --user YOUR_USER --save-credentials"
 Write-Host ""
 Write-Host "Refresh PATH in other open shells:"
 Write-Host "  PowerShell:  `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')"
-Write-Host "  nushell:     `$env.PATH = (`$env.PATH | prepend '$Prefix')"
-Write-Host "  bash/zsh:    export PATH=`"$Prefix:`$PATH`""
+Write-Host ('  nushell:     $env.PATH = ($env.PATH | prepend ''' + $Prefix + ''')')
+Write-Host ('  bash/zsh:    export PATH="' + $Prefix + ':$PATH"')
 Write-Host ""
 Write-Host "Uninstall: powershell -File `"$uninstall`""
-Write-Host "Or from nushell:  nu -c \"powershell -File '$uninstall'\""
+Write-Host ('Or from nushell:  nu -c "powershell -File ''' + $uninstall + '''"')
