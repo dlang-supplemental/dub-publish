@@ -1,19 +1,28 @@
 module dub_publish.git;
 
 import std.algorithm : canFind, startsWith;
-import std.array : split;
+import std.array : appender, split;
 import std.exception : enforce;
-import std.process : Config, execute;
+import std.process : Redirect, pipeProcess, wait;
 import std.string : strip, chomp;
 
 /// Return the URL for a git remote (default `origin`), or null if unavailable.
 string detectGitRemoteUrl(string remote = "origin", string cwd = ".")
 {
-	auto r = execute(["git", "-C", cwd, "remote", "get-url", remote], null,
-		Config.stderrPassThrough);
-	if (r.status != 0)
+	// Keep git's "not a repository" noise off the user's terminal.
+	auto pipes = pipeProcess(["git", "-C", cwd, "remote", "get-url", remote],
+		Redirect.stdout | Redirect.stderr);
+	auto outBuf = appender!string();
+	foreach (chunk; pipes.stdout.byChunk(4096))
+		outBuf.put(cast(char[]) chunk);
+	foreach (chunk; pipes.stderr.byChunk(4096))
+	{
+		// drain stderr
+	}
+	auto status = wait(pipes.pid);
+	if (status != 0)
 		return null;
-	auto url = r.output.strip;
+	auto url = outBuf.data.strip;
 	if (!url.length)
 		return null;
 	return normalizeRepoUrl(url);

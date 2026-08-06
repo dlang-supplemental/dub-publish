@@ -11,9 +11,47 @@ import std.string : strip, toLower;
 
 import dub_publish;
 import dub_publish.version_;
+import prohelp.config;
+import prohelp.intercept;
+
+private enum embeddedHelpSdl = import("help.sdl");
+
+private InterceptConfig helpConfig()
+{
+	return InterceptConfig.fromContent(embeddedHelpSdl, "help.sdl");
+}
+
+/// Progressive help (prohelp). Exit 0 when the user asked for help; callers may override.
+private int showHelp(string[] argv)
+{
+	auto helpArgs = argv.dup;
+	if (helpArgs.length < 2)
+		helpArgs ~= "?";
+	prohelp.intercept.intercept(helpArgs, helpConfig());
+	return 0;
+}
 
 int main(string[] args)
 {
+	// Bare run: helpful progressive help, not a failed register.
+	if (args.length < 2)
+	{
+		showHelp([args[0], "?"]);
+		return 2;
+	}
+
+	// help / ? / --help / -h (and ?:i etc.) before getopt
+	{
+		auto t = args[1].toLower;
+		if (t == "?" || t == "help" || t == "--help" || t == "-h" || t == "--?"
+			|| t.startsWith("?:") || t.startsWith("help:") || t.startsWith("--help:")
+			|| t.startsWith("-h:") || t.startsWith("--?:"))
+		{
+			showHelp(args);
+			return 0;
+		}
+	}
+
 	string registry;
 	string user;
 	string password;
@@ -39,13 +77,13 @@ int main(string[] args)
 	bool yes;
 	bool help;
 
-	string command = "register";
+	string command;
 	string[] rest;
-	if (args.length >= 2 && !args[1].startsWith("-"))
+	if (!args[1].startsWith("-"))
 	{
 		auto c = args[1];
 		if (c.among!(
-				"register", "publish", "update", "status", "login", "logout", "help",
+				"register", "publish", "update", "status", "login", "logout",
 				"version", "--version",
 				"remove", "logo", "logo-delete", "docs-url", "categories",
 				"hooks", "hooks-disable", "repo", "perms-add", "leave"))
@@ -59,15 +97,19 @@ int main(string[] args)
 			rest = args[0] ~ args[2 .. $];
 		}
 		else
-			rest = args;
+		{
+			stderr.writeln("error: unknown command '", c, "'");
+			stderr.writeln("Run `dub-publish ?` for progressive help, or `dub-publish register --url …`.");
+			showHelp([args[0], "?"]);
+			return 2;
+		}
 	}
 	else
-		rest = args;
-
-	if (command == "help")
 	{
-		printHelp();
-		return 0;
+		stderr.writeln("error: missing command (got options first).");
+		stderr.writeln("Example: dub-publish register --url https://github.com/org/repo");
+		showHelp([args[0], "?"]);
+		return 2;
 	}
 
 	try
@@ -100,14 +142,15 @@ int main(string[] args)
 		);
 		if (help || opts.helpWanted)
 		{
-			printHelp();
+			auto topic = command == "register" ? "register" : command;
+			showHelp([args[0], "?", topic]);
 			return 0;
 		}
 	}
 	catch (Exception e)
 	{
 		stderr.writeln("error: ", e.msg);
-		printHelp();
+		showHelp([args[0], "?"]);
 		return 2;
 	}
 
@@ -232,7 +275,7 @@ int main(string[] args)
 		case "leave":
 			return cmdLeave(cfg, root, packageName, dryRun);
 		default:
-			printHelp();
+			showHelp([args[0], "?"]);
 			return 2;
 		}
 	}
@@ -306,7 +349,7 @@ int cmdRegister(PublishConfig cfg, string root, string url, string packageName,
 	if (!url.length)
 		url = detectGitRemoteUrl("origin", root);
 	enforceMsg(url.length > 0,
-		"No repository URL — pass --url or run inside a git repo with an origin remote");
+		"No repository URL -- pass --url or run inside a git repo with an origin remote");
 
 	auto name = packageName.length ? packageName : readPackageName(root);
 	writeln("Registry:   ", cfg.registryUrl);
@@ -639,61 +682,6 @@ void enforceMsg(bool cond, string msg)
 
 void printHelp()
 {
-	writeln(`dub-publish — manage packages on the DUB registry (code.dlang.org)
-
-Automates owner actions that the website exposes under My packages.
-
-Usage:
-  # Agent-friendly default drop file (deleted after successful save):
-  #   Windows: %LOCALAPPDATA%\dlang-supplemental\dub-publish\password.incoming
-  #   Unix:    ~/.dlang-supplemental/dub-publish/password.incoming
-  dub-publish login --user NAME --save-credentials
-  dub-publish login --user NAME --password PASS [--save-credentials]
-  dub-publish login --user NAME --password-file PATH [--save-credentials]
-  dub-publish login --user NAME --prompt-password [--save-credentials]
-  dub-publish logout
-  dub-publish version
-  dub-publish register|publish [options]
-  dub-publish update|status [options]
-  dub-publish remove --yes [options]
-  dub-publish logo --logo-file PATH [options]
-  dub-publish logo-delete [options]
-  dub-publish docs-url --docs-url URL [options]
-  dub-publish categories --category ID [--category ID...] [options]
-  dub-publish hooks [--secret-out FILE] [--hooks-out FILE] [options]
-  dub-publish hooks-disable [options]
-  dub-publish repo --kind github --owner ORG --project REPO [options]
-  dub-publish perms-add --username NAME --perm update|metadata|source|admin [options]
-  dub-publish leave [options]
-
-Common options:
-  --registry URL       Registry base URL (default https://code.dlang.org)
-  --user, -u NAME      Username or email (env: DUB_REGISTRY_USER)
-  --password, -p PASS  Password (env: DUB_REGISTRY_PASSWORD). Appears in shell history
-                       and process lists — prefer password.incoming or --password-file.
-  --password-file PATH Read password from file (first line)
-  --prompt-password    Interactive TTY prompt (no echo); opt-in, not default
-  --url URL            Repository URL (default: git remote origin)
-  --package, -n NAME   Package name (default: from dub.json / dub.sdl)
-  --secret SECRET      Webhook secret for unauthenticated update
-  --root DIR           Package directory (default: .)
-  --ignore-fork        Allow registering a forked repository
-  --dry-run            Print actions only
-  --save-credentials   Store user/password locally; consumes password.incoming then deletes it
-  --yes, -y            Confirm destructive actions
-  -h, --help           Show this help
-
-Credentials:
-  Write the password (first line) to password.incoming under the config dir, then:
-    dub-publish login --user NAME --save-credentials
-  That stores DPAPI (Windows) / mode 0600 (elsewhere) credentials and deletes the
-  drop file. Or pass --password / --password-file. -p is visible in ps / history;
-  dub-publish does not log it. logout clears the store and any leftover drop file.
-  Windows config: %LOCALAPPDATA%\dlang-supplemental\dub-publish\
-
-Notes:
-  Logo: png/jpeg/gif/bmp, max 1 MiB, dimensions 2x2..2048x2048 (registry resizes to <=512).
-  hooks builds clean webhook URLs (works around dub-registry #614 malformed ?secret= URLs).
-  Secret is printed once, then saved under %LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\
-`);
+	showHelp(["dub-publish", "?"]);
 }
+

@@ -1,0 +1,68 @@
+command "dub-publish" {
+    summary "Register and manage packages on the DUB registry"
+    description "Owner CLI for code.dlang.org: login, register repos, update metadata, logos, docs URL, categories, and webhooks. Official dub has no publish command."
+
+    section "usage" {
+        summary "How to invoke"
+        content "dub-publish <command> [options]"
+
+        example "Show this help" "dub-publish"
+        example "Progressive help / TUI" "dub-publish ?"
+        example "Interactive help" "dub-publish ?:i"
+        example "Login and save credentials" "dub-publish login --user NAME --save-credentials"
+        example "Register current repo" "dub-publish register --ignore-fork"
+        example "Register with explicit URL" "dub-publish register --url https://github.com/org/repo --ignore-fork"
+    }
+
+    section "commands" {
+        summary "Subcommands"
+        content "login logout register|publish status update logo logo-delete docs-url categories hooks hooks-disable repo perms-add leave remove version"
+    }
+
+    section "auth" {
+        summary "Credentials"
+        content "login / logout. Prefer password.incoming drop file, then --save-credentials (DPAPI on Windows)."
+
+        example "Drop-file login" "dub-publish login --user NAME --save-credentials"
+    }
+
+    section "register" {
+        summary "Register or refresh a package"
+        content "register|publish --url URL [--ignore-fork]. Default URL is git remote origin; requires a git repo or --url."
+    }
+
+    section "status" {
+        summary "Check package presence"
+        content "status -n NAME"
+    }
+
+    section "update" {
+        summary "Queue registry refresh"
+        content "update -n NAME [--secret SECRET]"
+    }
+
+    section "metadata" {
+        summary "Logo, docs URL, categories"
+        content "logo --logo-file PATH | docs-url --docs-url URL | categories --category ID..."
+    }
+
+    section "hooks" {
+        summary "Webhook secret and URLs"
+        content "hooks [-n NAME] | hooks-disable"
+    }
+
+    section "admin" {
+        summary "Repo transfer, perms, remove"
+        content "repo | perms-add | leave | remove --yes"
+    }
+
+    section "credentials" {
+        summary "Local credential store"
+        content "Windows drop file: %LOCALAPPDATA%/dlang-supplemental/dub-publish/password.incoming then login --save-credentials. Unix: ~/.dlang-supplemental/dub-publish/password.incoming"
+    }
+
+    section "options" {
+        summary "Common flags"
+        content "--registry --user -u --password -p --password-file --prompt-password --url --package -n --root --ignore-fork --dry-run --save-credentials --yes"
+    }
+}

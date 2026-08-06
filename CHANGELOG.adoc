@@ -1,5 +1,13 @@
 = Changelog
 
+== 0.4.1 (2026-08-06)
+
+* Bare invocation shows progressive help (prohelp) instead of failing as a default `register`.
+* Git remote probe no longer prints `fatal: not a git repository` on stderr.
+* Dependency: `openshellorg/prohelp` `v0.2.1` (`deps/prohelp`).
+
+link:changelog-details/2026-08-06 - bare run prohelp.adoc[Details]
+
 == 0.4.0 (2026-08-06)
 
 * Windows release packaging: zip + `install.ps1` (User PATH under `%LOCALAPPDATA%\Programs\…`).
