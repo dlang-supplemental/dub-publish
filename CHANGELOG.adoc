@@ -1,9 +1,15 @@
 = Changelog
 
+== 0.5.1 (2026-08-06)
+
+* Fix Windows zip packaging (`Compress-Archive`) for Expand-Archive compatibility.
+* Build `macos-x64` via LDC `--arch=x86_64` on `macos-latest` (avoid scarce macos-13 runners).
+
 == 0.5.0 (2026-08-06)
 
-* Multi-platform releases: `windows-x64`, `linux-x64`, `macos-x64`, `macos-arm64`.
+* Multi-platform releases: `windows-x64`, `linux-x64`, `macos-x64` (cross-built on Apple Silicon runners), `macos-arm64`.
 * Installers: `install.ps1` (Windows), `install.sh` (Unix), `install.nu` (nushell wrapper + PATH hints).
+* Windows zip uses `Compress-Archive` so `Expand-Archive` works.
 * Help: install/credentials sections document PowerShell, bash/zsh, and nushell.
 * prohelp `v0.2.2` (Windows nushell config path + detection).
 
