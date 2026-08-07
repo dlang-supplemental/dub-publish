@@ -3,7 +3,28 @@ ifndef::env-github[:icons: font]
 :toclevels: 2
 :sectanchors:
 
-[[readme-top]]
+ifdef::env-github[]
+++++
+<a id="readme-top"></a>
+<div align="center">
+<a href="https://github.com/dlang-supplemental/dub-publish/graphs/contributors"><img src="https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Contributors"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/network/members"><img src="https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Forks"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/stargazers"><img src="https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Stars"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/issues"><img src="https://img.shields.io/github/issues/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Issues"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/blob/main/LICENSE"><img src="https://img.shields.io/github/license/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="License"></a>
+<br />
+<h3 align="center">dub-publish</h3>
+<p align="center">
+CLI to register Git repositories with the DUB package registry — register, update, webhooks, logo, docs URL, categories, permissions, and remove.<br />
+<a href="https://github.com/dlang-supplemental/dub-publish/issues">Report Bug</a>
+&middot;
+<a href="https://github.com/dlang-supplemental/dub-publish/issues">Request Feature</a>
+</p>
+</div>
+++++
+endif::[]
+
+ifndef::env-github[]
 image:https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge[Contributors,link=https://github.com/dlang-supplemental/dub-publish/graphs/contributors]
 image:https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge[Forks,link=https://github.com/dlang-supplemental/dub-publish/network/members]
 image:https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge[Stars,link=https://github.com/dlang-supplemental/dub-publish/stargazers]
@@ -16,6 +37,7 @@ CLI to register Git repositories with the https://code.dlang.org[DUB package reg
 
 link:https://github.com/dlang-supplemental/dub-publish/issues[Report Bug] ·
 link:https://github.com/dlang-supplemental/dub-publish/issues[Request Feature]
+endif::[]
 
 Official `dub` has no `publish` / `submit` command. This tool automates the browser "My packages" flows.
 
