@@ -1,5 +1,9 @@
 = Changelog
 
+== 0.5.4 (2026-08-07)
+
+* Fix release packaging encoding; prohelp v0.2.3.
+
 == 0.5.3 (2026-08-07)
 
 * prohelp v0.2.3 (UTF-8 console + consistent dim frames).
