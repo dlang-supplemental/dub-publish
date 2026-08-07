@@ -1,5 +1,9 @@
 = Changelog
 
+== 0.5.5 (2026-08-07)
+
+* Rewrite dub.sdl as UTF-8 (CP1252 copyright byte broke release CI).
+
 == 0.5.4 (2026-08-07)
 
 * Fix release packaging encoding; prohelp v0.2.3.
