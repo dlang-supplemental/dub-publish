@@ -34,3 +34,6 @@ dub.selections.json
 *.a
 *.log
 MEMORIES.md
+
+deps/
+

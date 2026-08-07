@@ -1,7 +1,7 @@
-ï»¿name "dub-publish"
+name "dub-publish"
 description "CLI to register Git repositories with the DUB package registry (code.dlang.org)"
 authors "amdphreak"
-copyright "Copyright Â© 2026, amdphreak"
+copyright "Copyright © 2026, amdphreak"
 license "BSL-1.0"
 # Version comes from git tags (vX.Y.Z) / VERSION file for --version.
 
@@ -10,8 +10,8 @@ targetName "dub-publish"
 
 versions "DubPublishCli"
 
-# CI checkouts openshellorg/prohelp@v0.2.1 into deps/prohelp (see workflows).
-# Local: junction or clone â€” e.g. mklink /J deps\prohelp C:\code\github.com\dev-centr\prohelp
+# CI checkouts openshellorg/prohelp@v0.2.3 into deps/prohelp (see workflows).
+# Local: junction or clone — e.g. mklink /J deps\prohelp C:\code\github.com\dev-centr\prohelp
 dependency "prohelp" path="deps/prohelp"
 dependency "sdlang-d" version="~>0.10.6"
 

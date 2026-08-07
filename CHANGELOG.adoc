@@ -1,5 +1,9 @@
 = Changelog
 
+== 0.5.3 (2026-08-07)
+
+* prohelp v0.2.3 (UTF-8 console + consistent dim frames).
+
 == 0.5.2 (2026-08-06)
 
 * Fix `install.ps1` parse error in bash/nushell PATH hint lines (blocked Windows install).

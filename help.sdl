@@ -1,6 +1,9 @@
 command "dub-publish" {
     summary "Register and manage packages on the DUB registry"
     description "Owner CLI for code.dlang.org: login, register repos, update metadata, logos, docs URL, categories, and webhooks. Official dub has no publish command."
+    homepage "https://github.com/dlang-supplemental/dub-publish"
+    docs "https://github.com/dlang-supplemental/dub-publish#readme"
+    issues "https://github.com/dlang-supplemental/dub-publish/issues"
 
     section "usage" {
         summary "How to invoke"
