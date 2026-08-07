@@ -3,21 +3,12 @@ ifndef::env-github[:icons: font]
 :toclevels: 2
 :sectanchors:
 
-ifndef::env-github[]
+[[readme-top]]
 image:https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge[Contributors,link=https://github.com/dlang-supplemental/dub-publish/graphs/contributors]
 image:https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge[Forks,link=https://github.com/dlang-supplemental/dub-publish/network/members]
 image:https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge[Stars,link=https://github.com/dlang-supplemental/dub-publish/stargazers]
 image:https://img.shields.io/github/issues/dlang-supplemental/dub-publish.svg?style=for-the-badge[Issues,link=https://github.com/dlang-supplemental/dub-publish/issues]
 image:https://img.shields.io/github/license/dlang-supplemental/dub-publish.svg?style=for-the-badge[License,link=https://github.com/dlang-supplemental/dub-publish/blob/main/LICENSE]
-endif::[]
-
-ifdef::env-github[]
-image:https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge[Contributors]
-image:https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge[Forks]
-image:https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge[Stars]
-image:https://img.shields.io/github/issues/dlang-supplemental/dub-publish.svg?style=for-the-badge[Issues]
-image:https://img.shields.io/github/license/dlang-supplemental/dub-publish.svg?style=for-the-badge[License]
-endif::[]
 
 = dub-publish
 
@@ -120,6 +111,8 @@ jobs:
       DUB_REGISTRY_USER: ${{ secrets.DUB_REGISTRY_USER }}
       DUB_REGISTRY_PASSWORD: ${{ secrets.DUB_REGISTRY_PASSWORD }}
 ----
+
+link:#readme-top[back to top]
 
 == Usage
 
@@ -226,6 +219,8 @@ Registration only links the repository. New versions appear when you push SemVer
 dub-publish update -n mypkg --secret YOUR_PACKAGE_SECRET
 ----
 
+link:#readme-top[back to top]
+
 == Changelog
 
 See link:CHANGELOG.adoc[CHANGELOG].
@@ -234,9 +229,13 @@ See link:CHANGELOG.adoc[CHANGELOG].
 
 Boost Software License 1.0 — see link:LICENSE[LICENSE].
 
+link:#readme-top[back to top]
+
 == Contact
 
 DLang Supplemental — dlang@devcentr.org
 
 * Project: https://github.com/dlang-supplemental/dub-publish
 * Site: https://dlang-supplemental.github.io
+
+link:#readme-top[back to top]
