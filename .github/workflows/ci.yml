@@ -27,6 +27,9 @@ jobs:
 
       - name: Help smoke test
         run: |
+          set +e
           ./dub-publish
-          test $? -eq 2
+          rc=$?
+          set -e
+          test "$rc" -eq 2
           ./dub-publish "?"
