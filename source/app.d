@@ -3,7 +3,7 @@ module app;
 import std.algorithm : among, startsWith;
 import std.array : join;
 import std.conv : to;
-import std.file : mkdirRecurse, write;
+import std.file : exists, mkdirRecurse, readText, write;
 import std.getopt;
 import std.path : buildPath, dirName;
 import std.stdio;
@@ -154,6 +154,35 @@ int main(string[] args)
 		return 2;
 	}
 
+	// Optional verb after `hooks` (status|get|generate|enable|regenerate|disable).
+	string hooksAction = "status";
+	if (command == "hooks")
+	{
+		string[] positional;
+		foreach (a; rest[1 .. $])
+		{
+			if (a.startsWith("-"))
+				continue;
+			positional ~= a;
+		}
+		if (positional.length > 1)
+		{
+			stderr.writeln("error: unexpected arguments after hooks: ", positional[1 .. $].join(" "));
+			stderr.writeln("Usage: hooks [status|get|generate|enable|regenerate|disable] [-n NAME]");
+			return 2;
+		}
+		if (positional.length == 1)
+		{
+			hooksAction = positional[0].toLower;
+			if (!hooksAction.among!("status", "get", "generate", "enable", "regenerate", "disable"))
+			{
+				stderr.writeln("error: unknown hooks action '", positional[0], "'");
+				stderr.writeln("Use: status | get|generate|enable | regenerate | disable");
+				return 2;
+			}
+		}
+	}
+
 	bool passwordFromExplicit;
 	if (passwordFile.length)
 	{
@@ -265,7 +294,9 @@ int main(string[] args)
 		case "categories":
 			return cmdCategories(cfg, root, packageName, categories, dryRun);
 		case "hooks":
-			return cmdHooks(cfg, root, packageName, secretOut, hooksOut, dryRun);
+			if (hooksAction == "disable")
+				return cmdHooksDisable(cfg, root, packageName, dryRun);
+			return cmdHooks(cfg, root, packageName, hooksAction, secretOut, hooksOut, yes, dryRun);
 		case "hooks-disable":
 			return cmdHooksDisable(cfg, root, packageName, dryRun);
 		case "repo":
@@ -538,45 +569,185 @@ int cmdCategories(PublishConfig cfg, string root, string packageName, string[] c
 	return res.ok ? 0 : 1;
 }
 
-int cmdHooks(PublishConfig cfg, string root, string packageName, string secretOut,
-	string hooksOut, bool dryRun)
+string defaultSecretOut(string packageName)
 {
-	packageName = requirePackage(root, packageName);
-	if (dryRun)
-	{
-		writeln("Would enable/regenerate webhooks for ", packageName);
-		return 0;
-	}
-	auto client = new DubRegistryClient(cfg);
-	client.login();
-	auto secret = client.regenSecret(packageName);
-	auto hooks = buildWebhookUrls(cfg.registryUrl, packageName, secret);
+	return buildPath(configDir(), "hooks", packageName ~ ".secret");
+}
 
-	writeln("Webhook secret (shown once):");
-	writeln(secret);
-	writeln();
+string defaultHooksOut(string packageName)
+{
+	return buildPath(configDir(), "hooks", packageName ~ ".hooks.txt");
+}
+
+string readLocalSecret(string path)
+{
+	if (!exists(path))
+		return null;
+	return readText(path).strip;
+}
+
+void printWebhookUrls(WebhookUrls hooks)
+{
 	writeln("Generic POST:  ", hooks.generic);
 	writeln("GitHub webhook:", hooks.github);
 	writeln("GitLab webhook:", hooks.gitlab);
 	writeln("(GitLab: set X-Gitlab-Token to the secret in the GitLab webhook UI)");
+}
 
-	if (!secretOut.length)
-		secretOut = buildPath(configDir(), "hooks", packageName ~ ".secret");
+void saveWebhookArtifacts(WebhookUrls hooks, string secretOut, string hooksOut)
+{
 	mkdirRecurse(dirName(secretOut));
-	write(secretOut, secret ~ "\n");
-	writeln();
-	writeln("Saved secret to ", secretOut);
-
-	if (!hooksOut.length)
-		hooksOut = buildPath(configDir(), "hooks", packageName ~ ".hooks.txt");
+	write(secretOut, hooks.secret ~ "\n");
 	mkdirRecurse(dirName(hooksOut));
 	auto text = "generic=" ~ hooks.generic ~ "\n"
 		~ "github=" ~ hooks.github ~ "\n"
 		~ "gitlab=" ~ hooks.gitlab ~ "\n"
 		~ "secret_file=" ~ secretOut ~ "\n";
 	write(hooksOut, text);
+}
+
+int cmdHooksStatus(PublishConfig cfg, string root, string packageName, string secretOut,
+	string hooksOut, bool dryRun)
+{
+	packageName = requirePackage(root, packageName);
+	if (!secretOut.length)
+		secretOut = defaultSecretOut(packageName);
+	if (!hooksOut.length)
+		hooksOut = defaultHooksOut(packageName);
+
+	if (dryRun)
+	{
+		writeln("Would report webhook status for ", packageName, " on ", cfg.registryUrl);
+		writeln("Local secret file: ", secretOut);
+		writeln("Local hooks file:  ", hooksOut);
+		return 0;
+	}
+
+	auto client = new DubRegistryClient(cfg);
+	client.login();
+	const configured = client.webhookSecretConfigured(packageName);
+	auto localSecret = readLocalSecret(secretOut);
+
+	writeln("Package:  ", packageName);
+	writeln("Registry: ", cfg.registryUrl);
+	writeln("Webhook secret on registry: ", configured ? "configured" : "not configured");
+	if (localSecret.length)
+	{
+		writeln("Local secret file: present (", secretOut, ")");
+		auto hooks = buildWebhookUrls(cfg.registryUrl, packageName, localSecret);
+		printWebhookUrls(hooks);
+		if (exists(hooksOut))
+			writeln("Local hooks file:  ", hooksOut);
+	}
+	else
+	{
+		writeln("Local secret file: missing (", secretOut, ")");
+		if (configured)
+		{
+			writeln("Registry has a secret, but this machine has no saved copy.");
+			writeln("The registry does not re-display plaintext secrets after creation.");
+			writeln("To rotate (invalidates existing forge webhooks): dub-publish hooks regenerate -n ",
+				packageName, " --yes");
+			auto hooks = buildWebhookUrls(cfg.registryUrl, packageName, "{SECRET}");
+			printWebhookUrls(hooks);
+		}
+		else
+		{
+			writeln("Enable with: dub-publish hooks get -n ", packageName);
+		}
+	}
+	return 0;
+}
+
+int cmdHooksGet(PublishConfig cfg, string root, string packageName, string secretOut,
+	string hooksOut, bool yes, bool dryRun, bool forceRegenerate)
+{
+	packageName = requirePackage(root, packageName);
+	if (!secretOut.length)
+		secretOut = defaultSecretOut(packageName);
+	if (!hooksOut.length)
+		hooksOut = defaultHooksOut(packageName);
+
+	if (dryRun)
+	{
+		writeln(forceRegenerate
+			? "Would regenerate webhook secret for "
+			: "Would enable webhook secret for ", packageName);
+		return 0;
+	}
+
+	auto client = new DubRegistryClient(cfg);
+	client.login();
+	const configured = client.webhookSecretConfigured(packageName);
+	auto localSecret = readLocalSecret(secretOut);
+
+	if (configured && !forceRegenerate)
+	{
+		writeln("Webhook secret already configured for ", packageName, ".");
+		if (localSecret.length)
+		{
+			writeln("Using local saved secret (no registry change).");
+			auto hooks = buildWebhookUrls(cfg.registryUrl, packageName, localSecret);
+			printWebhookUrls(hooks);
+			writeln("Secret file: ", secretOut);
+			if (exists(hooksOut))
+				writeln("Hooks file:  ", hooksOut);
+			writeln("To rotate the registry secret (breaks existing forge URLs):");
+			writeln("  dub-publish hooks regenerate -n ", packageName, " --yes");
+			return 0;
+		}
+		stderr.writeln("error: registry already has a webhook secret, but no local copy at:");
+		stderr.writeln("       ", secretOut);
+		stderr.writeln("Regenerating would invalidate existing GitHub/GitLab webhook URLs.");
+		stderr.writeln("If you intend to rotate: dub-publish hooks regenerate -n ",
+			packageName, " --yes");
+		return 2;
+	}
+
+	if (forceRegenerate && configured && !yes)
+	{
+		stderr.writeln("Refusing to regenerate webhook secret for '", packageName,
+			"' without --yes");
+		stderr.writeln("This invalidates existing forge webhook URLs that embed the old secret.");
+		return 2;
+	}
+
+	if (configured && forceRegenerate)
+		writeln("Regenerating webhook secret for ", packageName,
+			" (existing forge webhooks will stop working until updated)…");
+	else
+		writeln("Enabling webhook secret for ", packageName, "…");
+
+	auto secret = client.regenSecret(packageName);
+	auto hooks = buildWebhookUrls(cfg.registryUrl, packageName, secret);
+
+	writeln("Webhook secret (shown once — save it):");
+	writeln(secret);
+	writeln();
+	printWebhookUrls(hooks);
+
+	saveWebhookArtifacts(hooks, secretOut, hooksOut);
+	writeln();
+	writeln("Saved secret to ", secretOut);
 	writeln("Saved webhook URLs to ", hooksOut);
 	return 0;
+}
+
+int cmdHooks(PublishConfig cfg, string root, string packageName, string action,
+	string secretOut, string hooksOut, bool yes, bool dryRun)
+{
+	switch (action)
+	{
+	case "status":
+		return cmdHooksStatus(cfg, root, packageName, secretOut, hooksOut, dryRun);
+	case "get", "generate", "enable":
+		return cmdHooksGet(cfg, root, packageName, secretOut, hooksOut, yes, dryRun, false);
+	case "regenerate":
+		return cmdHooksGet(cfg, root, packageName, secretOut, hooksOut, yes, dryRun, true);
+	default:
+		stderr.writeln("error: unknown hooks action '", action, "'");
+		return 2;
+	}
 }
 
 int cmdHooksDisable(PublishConfig cfg, string root, string packageName, bool dryRun)

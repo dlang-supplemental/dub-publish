@@ -1,5 +1,12 @@
 = Changelog
 
+== 0.5.6 (2026-08-08)
+
+* `hooks` is status-only (no `regen_secret`). Use `hooks get` to enable/reuse, `hooks regenerate --yes` to rotate.
+* Detect an existing registry webhook via the owner package page before generating; refuse silent rotation.
+
+link:changelog-details/2026-08-08 - hooks status vs get.adoc[Details]
+
 == 0.5.5 (2026-08-07)
 
 * Rewrite dub.sdl as UTF-8 (CP1252 copyright byte broke release CI).

@@ -1,0 +1,8 @@
+== 0.5.6 — Safe webhook status (2026-08-08)
+
+Previously bare `hooks` always POSTed `regen_secret`, which rotates the registry secret and leaves forge webhook URLs (especially GitHub `?secret=`) stale.
+
+* `hooks` / `hooks status` inspects `/my_packages/:name` for enablement and reports local `hooks/<pkg>.secret` without regenerating.
+* `hooks get` (aliases `generate`, `enable`) creates a secret only when the registry has none; if already configured it reprints from the local save and tells you how to rotate.
+* `hooks regenerate --yes` is the explicit destructive rotate path.
+* `hooks disable` is accepted as an alias of `hooks-disable`.

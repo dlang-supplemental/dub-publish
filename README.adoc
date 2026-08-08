@@ -167,6 +167,7 @@ After that, later commands reuse the local store (no password flags):
 ----
 dub-publish register --ignore-fork
 dub-publish hooks -n mypkg
+dub-publish hooks get -n mypkg
 dub-publish update -n mypkg
 ----
 
@@ -186,8 +187,10 @@ CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASS
 `logo-delete`:: Reset to default logo.
 `docs-url`:: Set documentation URL (`--docs-url`).
 `categories`:: Set up to four categories (`--category` repeatable).
-`hooks`:: Enable/regenerate webhook secret; print + save secret and clean generic/GitHub/GitLab URLs (avoids https://github.com/dlang/dub-registry/issues/614[#614] malformation).
-`hooks-disable`:: Revoke webhook secret.
+`hooks` / `hooks status`:: Report whether a registry webhook secret is configured and whether a local copy exists. Does **not** call `regen_secret` (safe to check).
+`hooks get` / `generate` / `enable`:: Enable webhooks when unset; if already configured, reuse the local saved secret and refuse to rotate. Print + save clean generic/GitHub/GitLab URLs (avoids https://github.com/dlang/dub-registry/issues/614[#614] malformation).
+`hooks regenerate --yes`:: Rotate the registry secret (invalidates existing forge webhook URLs that embed the old secret).
+`hooks disable` / `hooks-disable`:: Revoke webhook secret.
 `repo`:: Transfer repository coordinates (`--kind` / `--owner` / `--project`).
 `perms-add`:: Add a shared user (`--username`, `--perm update|metadata|source|admin`).
 `leave`:: Leave a shared package.
@@ -227,7 +230,7 @@ Legacy plaintext `credentials` files are upgraded automatically on load.
 
 About `-p`: the app does not write the password to its own logs, but the shell may keep it in history and other local users can see it in the process list. Prefer the drop file / `--password-file` / saved store.
 
-Webhook outputs (from `hooks`):
+Webhook outputs (from `hooks get` / `hooks regenerate`):
 
 * `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.secret`
 * `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.hooks.txt`

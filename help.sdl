@@ -61,7 +61,12 @@ command "dub-publish" {
 
     section "hooks" {
         summary "Webhook secret and URLs"
-        content "hooks [-n NAME] | hooks-disable"
+        content "hooks [status] [-n NAME] reports registry + local secret state without regenerating. hooks get|generate|enable enables only if unset (reuses local secret when already configured). hooks regenerate --yes rotates (invalidates forge URLs). hooks disable | hooks-disable revokes."
+
+        example "Status only (safe)" "dub-publish hooks -n mypkg"
+        example "Enable / print saved URLs" "dub-publish hooks get -n mypkg"
+        example "Force rotate" "dub-publish hooks regenerate -n mypkg --yes"
+        example "Disable" "dub-publish hooks disable -n mypkg"
     }
 
     section "admin" {
@@ -76,6 +81,6 @@ command "dub-publish" {
 
     section "options" {
         summary "Common flags"
-        content "--registry --user -u --password -p --password-file --prompt-password --url --package -n --root --ignore-fork --dry-run --save-credentials --yes"
+        content "--registry --user -u --password -p --password-file --prompt-password --url --package -n --root --ignore-fork --dry-run --save-credentials --yes (required for remove and hooks regenerate)"
     }
 }

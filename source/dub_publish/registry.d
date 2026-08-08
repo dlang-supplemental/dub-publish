@@ -127,7 +127,28 @@ final class DubRegistryClient
 		return request(HTTP.Method.post, url, null, null);
 	}
 
+	/// Owner package settings HTML (`GET /my_packages/:name`). Used to inspect webhook state.
+	RegistryResult packageSettingsPage(string packageName)
+	{
+		enforce(packageName.length, "Package name required");
+		auto res = request(HTTP.Method.get, pkgPath(packageName), null, null);
+		auto lower = res.body_.toLower;
+		enforceAuth(res, lower);
+		enforce(res.ok || res.status == 200,
+			"Failed to load package settings HTTP " ~ res.status.to!string);
+		return res;
+	}
+
+	/// True when the registry already has a webhook secret for this package.
+	/// Detected from the owner UI (no public “read secret” API; plaintext is shown only once).
+	bool webhookSecretConfigured(string packageName)
+	{
+		auto res = packageSettingsPage(packageName);
+		return parseWebhookSecretConfigured(res.body_);
+	}
+
 	/// Enable or regenerate webhook secret. Returns plaintext secret (Accept: text/plain).
+	/// Destructive when a secret already exists — existing forge webhook URLs stop working.
 	string regenSecret(string packageName)
 	{
 		enforce(packageName.length, "Package name required");
@@ -363,6 +384,21 @@ bool isAlreadyRegisteredMessage(string alert)
 	return lower.canFind("already registered")
 		|| lower.canFind("already exists")
 		|| lower.canFind("is already registered");
+}
+
+/// Parse owner package-settings HTML for webhook enablement (not the plaintext secret).
+bool parseWebhookSecretConfigured(string html)
+{
+	auto lower = html.toLower;
+	// Configured UI: Disable + Regenerate buttons / unset_secret form.
+	if (lower.canFind("disable webhooks")
+		|| lower.canFind("/unset_secret")
+		|| lower.canFind("regenerate secret")
+		|| lower.canFind("a webhook secret for this package is configured"))
+		return true;
+	if (lower.canFind("enable webhooks"))
+		return false;
+	return false;
 }
 
 private void normalizeRegistryUrl(ref string url)
