@@ -1,5 +1,9 @@
 = Changelog
 
+== 0.5.7 (2026-08-08)
+
+* Prefer `GET /my_packages/:name/webhook` JSON for hooks status when the registry supports it; keep HTML scrape fallback.
+
 == 0.5.6 (2026-08-08)
 
 * `hooks` is status-only (no `regen_secret`). Use `hooks get` to enable/reuse, `hooks regenerate --yes` to rotate.

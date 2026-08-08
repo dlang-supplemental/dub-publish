@@ -140,9 +140,19 @@ final class DubRegistryClient
 	}
 
 	/// True when the registry already has a webhook secret for this package.
-	/// Detected from the owner UI (no public “read secret” API; plaintext is shown only once).
+	/// Prefers `GET /my_packages/:name/webhook` (JSON); falls back to owner HTML scrape.
+	/// Plaintext secret is never returned by either path (shown only once after regen).
 	bool webhookSecretConfigured(string packageName)
 	{
+		enforce(packageName.length, "Package name required");
+		auto jsonRes = request(HTTP.Method.get, pkgPath(packageName) ~ "/webhook",
+			null, null, "application/json");
+		auto jsonLower = jsonRes.body_.toLower;
+		if ((jsonRes.ok || jsonRes.status == 200) && jsonRes.body_.canFind(`"configured"`))
+		{
+			enforceAuth(jsonRes, jsonLower);
+			return parseWebhookConfiguredJson(jsonRes.body_);
+		}
 		auto res = packageSettingsPage(packageName);
 		return parseWebhookSecretConfigured(res.body_);
 	}
@@ -399,6 +409,18 @@ bool parseWebhookSecretConfigured(string html)
 	if (lower.canFind("enable webhooks"))
 		return false;
 	return false;
+}
+
+/// Parse `GET /my_packages/:name/webhook` JSON body.
+bool parseWebhookConfiguredJson(string body)
+{
+	import std.string : replace;
+	auto compact = body.toLower.replace(" ", "").replace("\t", "").replace("\n", "").replace("\r", "");
+	if (compact.canFind(`"configured":true`))
+		return true;
+	if (compact.canFind(`"configured":false`))
+		return false;
+	throw new Exception("Unexpected webhook status JSON: " ~ body);
 }
 
 private void normalizeRegistryUrl(ref string url)
