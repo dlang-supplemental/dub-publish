@@ -1,0 +1,8 @@
+== 0.5.8 — Install GitHub DUB webhooks (2026-08-13)
+
+`hooks get` used to print webhook URLs and save them locally. It never created the GitHub repository webhook, so tag pushes did not auto-refresh unless someone pasted the URL into repo Settings → Webhooks.
+
+code.dlang.org's `/api/packages/:name/update/github` endpoint only queues an update on GitHub `create` (new tags/branches). `delete`, `push`, and `release` return HTTP 200 `"ignored event …"`, so removing a bad tag never cleared ingest errors.
+
+* `hooks install` (also run at the end of `hooks get`) creates or updates a GitHub `web` hook with `events: [create]` via `gh`.
+* Workflow `dub-registry-refresh.yml` POSTs the generic `?secret=` update URL on tag create **and** delete (`Content-Type: application/json` with `{}` — an empty body is HTTP 400). Set repo secret `DUB_PACKAGE_SECRET` to the package webhook secret.

@@ -1,5 +1,13 @@
 = Changelog
 
+== 0.5.8 (2026-08-13)
+
+* `hooks install` creates or updates the GitHub repo webhook via `gh` (DUB only honors `create` / new tags).
+* `hooks get` installs that GitHub webhook when `origin` is GitHub and `gh` is on PATH.
+* CI: `dub-registry-refresh.yml` POSTs the generic update URL on tag create and delete (delete is ignored by the GitHub hook endpoint).
+
+link:changelog-details/2026-08-13 - github hook install.adoc[Details]
+
 == 0.5.7 (2026-08-08)
 
 * Prefer `GET /my_packages/:name/webhook` JSON for hooks status when the registry supports it; keep HTML scrape fallback.

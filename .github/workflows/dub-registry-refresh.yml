@@ -1,0 +1,30 @@
+name: DUB registry refresh
+
+# code.dlang.org's GitHub hook endpoint only queues an update on `create`
+# (new tags/branches). `delete` / `push` / `release` return HTTP 200
+# "ignored event …" so removed tags keep producing ingest errors.
+# This workflow POSTs the generic update URL on tag create and delete.
+on:
+  create:
+  delete:
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    if: github.event_name == 'workflow_dispatch' || github.event.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Queue package update
+        env:
+          SECRET: ${{ secrets.DUB_PACKAGE_SECRET }}
+          PKG: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SECRET:-}" ]; then
+            echo "DUB_PACKAGE_SECRET is not set on this repo" >&2
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{}" \
+            "https://code.dlang.org/api/packages/${PKG}/update?secret=${SECRET}"

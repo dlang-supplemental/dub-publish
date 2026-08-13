@@ -168,16 +168,17 @@ int main(string[] args)
 		if (positional.length > 1)
 		{
 			stderr.writeln("error: unexpected arguments after hooks: ", positional[1 .. $].join(" "));
-			stderr.writeln("Usage: hooks [status|get|generate|enable|regenerate|disable] [-n NAME]");
+			stderr.writeln("Usage: hooks [status|get|generate|enable|install|regenerate|disable] [-n NAME]");
 			return 2;
 		}
 		if (positional.length == 1)
 		{
 			hooksAction = positional[0].toLower;
-			if (!hooksAction.among!("status", "get", "generate", "enable", "regenerate", "disable"))
+			if (!hooksAction.among!("status", "get", "generate", "enable", "install",
+					"regenerate", "disable"))
 			{
 				stderr.writeln("error: unknown hooks action '", positional[0], "'");
-				stderr.writeln("Use: status | get|generate|enable | regenerate | disable");
+				stderr.writeln("Use: status | get|generate|enable | install | regenerate | disable");
 				return 2;
 			}
 		}
@@ -694,7 +695,7 @@ int cmdHooksGet(PublishConfig cfg, string root, string packageName, string secre
 				writeln("Hooks file:  ", hooksOut);
 			writeln("To rotate the registry secret (breaks existing forge URLs):");
 			writeln("  dub-publish hooks regenerate -n ", packageName, " --yes");
-			return 0;
+			return cmdHooksInstall(cfg, root, packageName, secretOut, dryRun);
 		}
 		stderr.writeln("error: registry already has a webhook secret, but no local copy at:");
 		stderr.writeln("       ", secretOut);
@@ -730,7 +731,28 @@ int cmdHooksGet(PublishConfig cfg, string root, string packageName, string secre
 	writeln();
 	writeln("Saved secret to ", secretOut);
 	writeln("Saved webhook URLs to ", hooksOut);
-	return 0;
+	return cmdHooksInstall(cfg, root, packageName, secretOut, dryRun);
+}
+
+int cmdHooksInstall(PublishConfig cfg, string root, string packageName, string secretOut, bool dryRun)
+{
+	packageName = requirePackage(root, packageName);
+	if (!secretOut.length)
+		secretOut = defaultSecretOut(packageName);
+	auto localSecret = readLocalSecret(secretOut);
+	if (!localSecret.length)
+	{
+		stderr.writeln("error: no local webhook secret at ", secretOut);
+		stderr.writeln("Run: dub-publish hooks get -n ", packageName);
+		return 2;
+	}
+	auto repoUrl = detectGitRemoteUrl("origin", root);
+	auto hooks = buildWebhookUrls(cfg.registryUrl, packageName, localSecret);
+	auto result = installGithubDubHook(repoUrl, hooks.github, dryRun);
+	writeln(result.message);
+	if (result.skipped)
+		return 0;
+	return result.ok ? 0 : 1;
 }
 
 int cmdHooks(PublishConfig cfg, string root, string packageName, string action,
@@ -742,6 +764,8 @@ int cmdHooks(PublishConfig cfg, string root, string packageName, string action,
 		return cmdHooksStatus(cfg, root, packageName, secretOut, hooksOut, dryRun);
 	case "get", "generate", "enable":
 		return cmdHooksGet(cfg, root, packageName, secretOut, hooksOut, yes, dryRun, false);
+	case "install":
+		return cmdHooksInstall(cfg, root, packageName, secretOut, dryRun);
 	case "regenerate":
 		return cmdHooksGet(cfg, root, packageName, secretOut, hooksOut, yes, dryRun, true);
 	default:

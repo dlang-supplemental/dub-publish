@@ -29,7 +29,7 @@ command "dub-publish" {
 
     section "commands" {
         summary "Subcommands"
-        content "login logout register|publish status update logo logo-delete docs-url categories hooks hooks-disable repo perms-add leave remove version"
+        content "login logout register|publish status update logo logo-delete docs-url categories hooks hooks-disable repo perms-add leave remove version. hooks install puts the DUB GitHub webhook on origin."
     }
 
     section "auth" {
@@ -61,10 +61,11 @@ command "dub-publish" {
 
     section "hooks" {
         summary "Webhook secret and URLs"
-        content "hooks [status] [-n NAME] reports registry + local secret state without regenerating. hooks get|generate|enable enables only if unset (reuses local secret when already configured). hooks regenerate --yes rotates (invalidates forge URLs). hooks disable | hooks-disable revokes."
+        content "hooks [status] [-n NAME] reports registry + local secret state without regenerating. hooks get|generate|enable enables only if unset (reuses local secret when already configured) and installs the GitHub repo webhook via gh. hooks install creates/updates that GitHub webhook (DUB only honors create / new tags). hooks regenerate --yes rotates (invalidates forge URLs). hooks disable | hooks-disable revokes."
 
         example "Status only (safe)" "dub-publish hooks -n mypkg"
-        example "Enable / print saved URLs" "dub-publish hooks get -n mypkg"
+        example "Enable / print saved URLs / install GitHub hook" "dub-publish hooks get -n mypkg"
+        example "Install GitHub webhook only" "dub-publish hooks install -n mypkg"
         example "Force rotate" "dub-publish hooks regenerate -n mypkg --yes"
         example "Disable" "dub-publish hooks disable -n mypkg"
     }

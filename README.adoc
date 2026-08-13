@@ -168,6 +168,7 @@ After that, later commands reuse the local store (no password flags):
 dub-publish register --ignore-fork
 dub-publish hooks -n mypkg
 dub-publish hooks get -n mypkg
+dub-publish hooks install -n mypkg
 dub-publish update -n mypkg
 ----
 
@@ -188,7 +189,8 @@ CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASS
 `docs-url`:: Set documentation URL (`--docs-url`).
 `categories`:: Set up to four categories (`--category` repeatable).
 `hooks` / `hooks status`:: Report whether a registry webhook secret is configured and whether a local copy exists. Does **not** call `regen_secret` (safe to check).
-`hooks get` / `generate` / `enable`:: Enable webhooks when unset; if already configured, reuse the local saved secret and refuse to rotate. Print + save clean generic/GitHub/GitLab URLs (avoids https://github.com/dlang/dub-registry/issues/614[#614] malformation).
+`hooks get` / `generate` / `enable`:: Enable webhooks when unset; if already configured, reuse the local saved secret and refuse to rotate. Print + save clean generic/GitHub/GitLab URLs (avoids https://github.com/dlang/dub-registry/issues/614[#614] malformation). Then installs the GitHub repo webhook via `gh` (`events: create` only — that is all code.dlang.org honors).
+`hooks install`:: Create or update that GitHub webhook without regenerating the registry secret.
 `hooks regenerate --yes`:: Rotate the registry secret (invalidates existing forge webhook URLs that embed the old secret).
 `hooks disable` / `hooks-disable`:: Revoke webhook secret.
 `repo`:: Transfer repository coordinates (`--kind` / `--owner` / `--project`).
@@ -237,7 +239,7 @@ Webhook outputs (from `hooks get` / `hooks regenerate`):
 
 === How versions get published
 
-Registration only links the repository. New versions appear when you push SemVer tags (`v1.2.3`); the registry polls about twice an hour. You can also trigger an immediate refresh:
+Registration only links the repository. New versions appear when you push SemVer tags (`v1.2.3`). The GitHub webhook endpoint on code.dlang.org only honors **`create`** (new tags); `delete` / `push` / `release` are ignored. `hooks install` puts that `create` webhook on the repo. Workflow `dub-registry-refresh.yml` POSTs the generic update URL on tag create **and** delete — set repo secret `DUB_PACKAGE_SECRET`. The registry also polls about twice an hour. Immediate refresh:
 
 [source,console]
 ----

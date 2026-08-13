@@ -68,6 +68,44 @@ string normalizeRepoUrl(string url)
 	return url;
 }
 
+/// Parse `owner` / `repo` from a GitHub https or SSH remote. Returns false if not GitHub.
+bool parseGithubOwnerRepo(string url, out string owner, out string repo)
+{
+	import std.string : chomp, split, startsWith, toLower;
+
+	if (!url.length)
+		return false;
+	auto normalized = normalizeRepoUrl(url).chomp("/");
+	auto lower = normalized.toLower;
+	string rest;
+	if (lower.startsWith("https://github.com/"))
+		rest = normalized["https://github.com/".length .. $];
+	else if (lower.startsWith("http://github.com/"))
+		rest = normalized["http://github.com/".length .. $];
+	else if (lower.startsWith("https://www.github.com/"))
+		rest = normalized["https://www.github.com/".length .. $];
+	else
+		return false;
+
+	auto parts = rest.split("/");
+	if (parts.length < 2 || !parts[0].length || !parts[1].length)
+		return false;
+	owner = parts[0];
+	repo = parts[1].chomp(".git");
+	return owner.length > 0 && repo.length > 0;
+}
+
+unittest
+{
+	string owner, repo;
+	assert(parseGithubOwnerRepo("https://github.com/dlang-supplemental/dub-publish.git", owner, repo));
+	assert(owner == "dlang-supplemental");
+	assert(repo == "dub-publish");
+	assert(parseGithubOwnerRepo("git@github.com:openshellorg/project-map", owner, repo));
+	assert(owner == "openshellorg" && repo == "project-map");
+	assert(!parseGithubOwnerRepo("https://gitlab.com/foo/bar", owner, repo));
+}
+
 private ptrdiff_t indexOfColon(string s)
 {
 	foreach (i, c; s)
