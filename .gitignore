@@ -38,3 +38,5 @@ MEMORIES.md
 
 deps/
 
+!/.editorconfig
+!/.gitattributes
