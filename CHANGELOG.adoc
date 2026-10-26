@@ -1,5 +1,9 @@
 = Changelog
 
+== Unreleased
+
+* Build: `prohelp` is now a registry dependency (`~>0.2.3` from code.dlang.org) instead of `path="deps/prohelp"`; CI and the reusable `register-package.yml` no longer check prohelp out. README documents `dub add-local` for local testing.
+
 == 0.5.8 (2026-08-13)
 
 * `hooks install` creates or updates the GitHub repo webhook via `gh` (DUB only honors `create` / new tags).
