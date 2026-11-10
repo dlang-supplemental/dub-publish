@@ -1,0 +1,247 @@
+<a id="readme-top"></a>
+<div align="center">
+<a href="https://github.com/dlang-supplemental/dub-publish/graphs/contributors"><img src="https://img.shields.io/github/contributors/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Contributors"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/network/members"><img src="https://img.shields.io/github/forks/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Forks"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/stargazers"><img src="https://img.shields.io/github/stars/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Stars"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/issues"><img src="https://img.shields.io/github/issues/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="Issues"></a>
+<a href="https://github.com/dlang-supplemental/dub-publish/blob/main/LICENSE"><img src="https://img.shields.io/github/license/dlang-supplemental/dub-publish.svg?style=for-the-badge" alt="License"></a>
+<br />
+<h3 align="center">dub-publish</h3>
+<p align="center">
+CLI to register Git repositories with the DUB package registry — register, update, webhooks, logo, docs URL, categories, permissions, and remove.<br />
+<a href="https://github.com/dlang-supplemental/dub-publish/issues">Report Bug</a>
+&middot;
+<a href="https://github.com/dlang-supplemental/dub-publish/issues">Request Feature</a>
+</p>
+</div>
+
+
+Official `dub` has no `publish` / `submit` command. This tool automates the browser "My packages" flows.
+
+## Installation
+
+Supported release targets: **windows-x64**, **linux-x64**, **macos-x64**, **macos-arm64** (arm only on macOS).
+
+### Windows
+
+Download the `windows-x64` zip from https://github.com/dlang-supplemental/dub-publish/releases[Releases], extract, then:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+Or from nushell:
+
+```nushell
+nu install.nu
+```
+
+That copies `dub-publish.exe` to `%LOCALAPPDATA%\Programs\dlang-supplemental\dub-publish` and adds it to your **User PATH**. Refresh PATH in the current shell:
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+dub-publish version
+```
+
+```nushell
+$env.PATH = ($env.PATH | prepend $"($env.LOCALAPPDATA)\\Programs\\dlang-supplemental\\dub-publish")
+```
+
+### macOS / Linux
+
+Download `linux-x64`, `macos-x64`, or `macos-arm64`, extract, then:
+
+```console
+bash ./install.sh
+# or: nu install.nu
+```
+
+Installs under `~/.local/share/dlang-supplemental/dub-publish` and symlinks into `~/.local/bin`.
+
+A **rolling** prerelease tracks `main` (`tag: rolling`) for bleeding-edge builds.
+
+### Winget
+
+Package id: `dlang-supplemental.dub-publish` (CI is ready; first listing still needs a one-time `wingetcreate` / winget-pkgs PR — set repo secret `WINGET_TOKEN` afterward for auto updates).
+
+### From source
+
+Dependencies (`prohelp`, `sdlang-d`) come from https://code.dlang.org[code.dlang.org]; no extra checkout is needed.
+
+```console
+git clone https://github.com/dlang-supplemental/dub-publish.git
+cd dub-publish
+dub build --build=release
+```
+
+### Testing against a local prohelp
+
+To build against a local `prohelp` checkout instead of the registry copy, register it with DUB locally (testing only; never commit a path dependency):
+
+```console
+dub add-local C:\code\github.com\openshellorg\prohelp 0.2.3
+dub build --force
+# when done:
+dub remove-local C:\code\github.com\openshellorg\prohelp
+```
+
+Pass an explicit version that satisfies `~>0.2.3`; otherwise DUB derives it from the checkout's git state. Alternatively, put a path entry in this repo's `dub.selections.json` (`"prohelp": {"path": "C:/code/github.com/openshellorg/prohelp"}`); that file is git-ignored here, so do not force-add it.
+
+WARNING: DUB does not currently warn when a local package or a selections path entry is active. Run `dub list` (look for your path) or `dub describe prohelp` to confirm which copy is used, and remove the local registration before judging a registry build. `dub add-override` is deprecated upstream; do not use it.
+
+Then either put the binary on `PATH`, or run `packaging/install.ps1` from the build directory.
+
+### Credentials after install
+
+Windows credentials are DPAPI-bound to your user profile and are **not** part of the zip. After install or reinstall:
+
+```powershell
+$dir = Join-Path $env:LOCALAPPDATA "dlang-supplemental\dub-publish"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Content -Path (Join-Path $dir "password.incoming") -Value "your-registry-password"
+dub-publish login --user yourname --save-credentials
+```
+
+### From CI (reusable workflow)
+
+```yaml
+jobs:
+  publish:
+    uses: dlang-supplemental/dub-publish/.github/workflows/register-package.yml@main
+    with:
+      package: mypkg
+      url: https://github.com/org/repo
+      root: .
+    secrets:
+      DUB_REGISTRY_USER: ${{ secrets.DUB_REGISTRY_USER }}
+      DUB_REGISTRY_PASSWORD: ${{ secrets.DUB_REGISTRY_PASSWORD }}
+```
+
+[back to top](#readme-top)
+
+## Usage
+
+### Quick start
+
+Agent / script friendly — default drop file (same path on Windows, macOS, and Linux under the config dir):
+
+```console
+# PowerShell
+$dir = Join-Path $env:LOCALAPPDATA "dlang-supplemental\dub-publish"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Content -Path (Join-Path $dir "password.incoming") -Value "your-registry-password"
+dub-publish login --user yourname --save-credentials
+# stores DPAPI credentials and deletes password.incoming
+```
+
+```console
+# macOS / Linux
+mkdir -p ~/.dlang-supplemental/dub-publish
+printf '%s\n' 'your-registry-password' > ~/.dlang-supplemental/dub-publish/password.incoming
+chmod 600 ~/.dlang-supplemental/dub-publish/password.incoming
+dub-publish login --user yourname --save-credentials
+```
+
+After that, later commands reuse the local store (no password flags):
+
+```console
+dub-publish register --ignore-fork
+dub-publish hooks -n mypkg
+dub-publish hooks get -n mypkg
+dub-publish hooks install -n mypkg
+dub-publish update -n mypkg
+```
+
+Overrides: `--password-file` or `-p` / `--password`. Interactive humans can use `--prompt-password`. `-p` appears in shell history and process lists — `dub-publish` itself does not log it.
+
+CI still uses env vars / GitHub secrets (`DUB_REGISTRY_USER`, `DUB_REGISTRY_PASSWORD`) — do not rely on the local store in Actions.
+
+### Commands
+
+`login`:: Verify credentials. Pair with `--save-credentials` to persist them. Password via default `password.incoming` drop file, `--password-file`, `-p` / `--password` / env, saved store, or `--prompt-password`.
+`logout`:: Delete the local credential store and any leftover `password.incoming`.
+`register` / `publish`:: Log in and `POST /register_package`. Idempotent if already registered (then refreshes).
+`update`:: Queue a metadata refresh (login, or `--secret` webhook).
+`status`:: Check whether a package exists.
+`remove`:: Owner delete (`remove` + `remove_confirm`). Requires `--yes`.
+`logo`:: Upload logo (`--logo-file`). png/jpeg/gif/bmp, max 1 MiB.
+`logo-delete`:: Reset to default logo.
+`docs-url`:: Set documentation URL (`--docs-url`).
+`categories`:: Set up to four categories (`--category` repeatable).
+`hooks` / `hooks status`:: Report whether a registry webhook secret is configured and whether a local copy exists. Does **not** call `regen_secret` (safe to check).
+`hooks get` / `generate` / `enable`:: Enable webhooks when unset; if already configured, reuse the local saved secret and refuse to rotate. Print + save clean generic/GitHub/GitLab URLs (avoids https://github.com/dlang/dub-registry/issues/614[#614] malformation). Then installs the GitHub repo webhook via `gh` (`events: create` only — that is all code.dlang.org honors).
+`hooks install`:: Create or update that GitHub webhook without regenerating the registry secret.
+`hooks regenerate --yes`:: Rotate the registry secret (invalidates existing forge webhook URLs that embed the old secret).
+`hooks disable` / `hooks-disable`:: Revoke webhook secret.
+`repo`:: Transfer repository coordinates (`--kind` / `--owner` / `--project`).
+`perms-add`:: Add a shared user (`--username`, `--perm update|metadata|source|admin`).
+`leave`:: Leave a shared package.
+
+### Options
+
+* `--registry` — default `https://code.dlang.org`
+* `--user` / `--password` — or `DUB_REGISTRY_USER` / `DUB_REGISTRY_PASSWORD`
+* `--password-file` — read password from file (first line)
+* `--prompt-password` — interactive TTY prompt (opt-in)
+* `--url` — repository URL (default: `git remote get-url origin`)
+* `--package` / `-n` — package name (default: from `dub.json` / `dub.sdl`)
+* `--ignore-fork` — register even when the repo is a fork
+* `--dry-run` — print what would happen
+* `--save-credentials` — store user/password locally; consumes + deletes `password.incoming`
+* `--secret-out` / `--hooks-out` — override paths for `hooks` output files
+
+### Local credentials
+
+Passwords are **not** one-way hashed: the CLI must replay them to the registry.
+Industry practice for this is OS-backed reversible protection:
+
+* **Windows:** DPAPI bound to the current user (`credentials.v1`)
+* **Elsewhere:** Base64 payload in `credentials.v1` with file mode `0600`
+
+Default password drop file (plaintext, deleted after `--save-credentials`):
+
+* Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\password.incoming`
+* macOS / Linux: `~/.dlang-supplemental/dub-publish/password.incoming`
+
+Stored credentials:
+
+* Windows: `%LOCALAPPDATA%\dlang-supplemental\dub-publish\credentials.v1`
+* Unix: `~/.dlang-supplemental/dub-publish/credentials.v1`
+
+Legacy plaintext `credentials` files are upgraded automatically on load.
+
+About `-p`: the app does not write the password to its own logs, but the shell may keep it in history and other local users can see it in the process list. Prefer the drop file / `--password-file` / saved store.
+
+Webhook outputs (from `hooks get` / `hooks regenerate`):
+
+* `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.secret`
+* `%LOCALAPPDATA%\dlang-supplemental\dub-publish\hooks\<pkg>.hooks.txt`
+
+### How versions get published
+
+Registration only links the repository. New versions appear when you push SemVer tags (`v1.2.3`). The GitHub webhook endpoint on code.dlang.org only honors **`create`** (new tags); `delete` / `push` / `release` are ignored. `hooks install` puts that `create` webhook on the repo. Workflow `dub-registry-refresh.yml` POSTs the generic update URL on tag create **and** delete — set repo secret `DUB_PACKAGE_SECRET`. The registry also polls about twice an hour. Immediate refresh:
+
+```console
+dub-publish update -n mypkg --secret YOUR_PACKAGE_SECRET
+```
+
+[back to top](#readme-top)
+
+## Changelog
+
+See [CHANGELOG](CHANGELOG.adoc).
+
+## License
+
+Boost Software License 1.0 — see [LICENSE](LICENSE).
+
+[back to top](#readme-top)
+
+## Contact
+
+DLang Supplemental — dlang@devcentr.org
+
+* Project: https://github.com/dlang-supplemental/dub-publish
+* Site: https://dlang-supplemental.github.io
+
+[back to top](#readme-top)

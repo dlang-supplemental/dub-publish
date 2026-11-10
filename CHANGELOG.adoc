@@ -1,5 +1,11 @@
 = Changelog
 
+== 2026-11-10
+
+=== Registry readme
+
+* Version 0.5.8 publishes a root `README.md` so code.dlang.org can show the listing.
+
 == Unreleased
 
 * Build: `prohelp` is now a registry dependency (`~>0.2.3` from code.dlang.org) instead of `path="deps/prohelp"`; CI and the reusable `register-package.yml` no longer check prohelp out. README documents `dub add-local` for local testing.
